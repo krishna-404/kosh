@@ -103,8 +103,14 @@ COPY --from=installer --chown=nodejs:nodejs /app/packages ./packages
 COPY --from=builder --chown=nodejs:nodejs /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder --chown=nodejs:nodejs /app/apps/backend/package.json ./apps/backend/package.json
 
-# Copy built package outputs
+# Copy built package outputs. Every @connected-repo/* package the backend
+# imports at RUNTIME must have its dist copied here — the installer stage only
+# brings package.json files, so a missing dist becomes a MODULE_NOT_FOUND at
+# boot. Backend runtime deps: zod-schemas, broker-parsers (which itself
+# depends on zod-schemas). Add a line here when a new workspace package
+# becomes a backend runtime dependency.
 COPY --from=builder --chown=nodejs:nodejs /app/packages/zod-schemas/dist ./packages/zod-schemas/dist
+COPY --from=builder --chown=nodejs:nodejs /app/packages/broker-parsers/dist ./packages/broker-parsers/dist
 COPY --from=builder --chown=nodejs:nodejs /app/packages/typescript-config ./packages/typescript-config
 
 # Add entrypoint script
