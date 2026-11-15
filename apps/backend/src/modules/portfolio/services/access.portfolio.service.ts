@@ -632,6 +632,23 @@ export async function revokeAccess(grantId: string): Promise<void> {
 	await db.$transaction(async () => {
 		await assertNotLastOwner(grant);
 		await endGrant(grant.id, reason, me, silent);
+		// Leaving "all of Anil's accounts" means leaving them: an entry on one
+		// of those accounts at the same level or lower was never shown on its
+		// own, so it must not quietly keep the account in view. One that gives
+		// more than the holder-wide entry did is theirs to give up separately.
+		if (isSelf && grant.personId !== null && grant.accountId === null) {
+			const accountIds = await db.brokerAccounts
+				.unscope("default")
+				.where({ personId: grant.personId })
+				.pluck("id");
+			if (accountIds.length > 0) {
+				const covered = await db.accessGrants
+					.where({ revokedAt: null, userId: me, accountId: { in: accountIds } })
+					.select("id", "level");
+				for (const own of covered)
+					if (atLeast(grant.level, own.level)) await endGrant(own.id, "left", me, true);
+			}
+		}
 	});
 }
 

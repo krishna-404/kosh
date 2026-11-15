@@ -780,6 +780,27 @@ describe("Account access", () => {
 			expect(await levels(ramesh)).toEqual({});
 			expect(await levels(priya)).toEqual({ [zerodha]: "view" });
 		});
+
+		it("leaving all of a holder's accounts leaves them — a covered entry does not keep one in view", async () => {
+			const sunita = await signUp();
+			// Shared one account first, then all of the holder's: the first entry is now covered.
+			await anil.access.grant({ target: { accountId: zerodha }, email: sunita.email, level: "view" });
+			const wide = await anil.access.grant({ target: { personId: holderId }, email: sunita.email, level: "edit" });
+			expect(await levels(sunita)).toEqual({ [zerodha]: "edit", [groww]: "edit" });
+
+			await sunita.access.revoke({ grantId: wide.grantId });
+			expect(await levels(sunita)).toEqual({});
+			expect((await sunita.access.notices()).lost).toEqual([]);
+		});
+
+		it("…but more on one account than on the rest is kept until that is given up too", async () => {
+			const sunita = await signUp();
+			const wide = await anil.access.grant({ target: { personId: holderId }, email: sunita.email, level: "view" });
+			await anil.access.grant({ target: { accountId: zerodha }, email: sunita.email, level: "edit" });
+
+			await sunita.access.revoke({ grantId: wide.grantId });
+			expect(await levels(sunita)).toEqual({ [zerodha]: "edit" });
+		});
 	});
 
 	describe("being told, once", () => {
@@ -809,7 +830,7 @@ describe("Account access", () => {
 			await anil.access.revoke({ grantId });
 
 			const { lost } = await ramesh.access.notices();
-			expect(lost.map((l) => [l.label, l.byName])).toEqual([["Anil Zerodha", expect.any(String)]]);
+			expect(lost.map((l) => [l.kind, l.label, l.byName])).toEqual([["account", "Anil Zerodha", expect.any(String)]]);
 			// One person's notice is not another's to dismiss.
 			await anil.access.acknowledge({ lost: [grantId] });
 			expect((await ramesh.access.notices()).lost).toHaveLength(1);

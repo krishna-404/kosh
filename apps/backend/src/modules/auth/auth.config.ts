@@ -248,6 +248,17 @@ export const auth = betterAuth({
 		window: 10,
 		max: 100,
 		storage: "memory",
+		// Signing up and in is held to 3 tries per 10 seconds per address — right
+		// for the open internet, but the browser tests sign several people up at
+		// once from one machine. Loosened for those runs only, never in production.
+		...(env.NODE_ENV === "test" && env.IS_E2E_TEST
+			? {
+					customRules: {
+						"/sign-up/*": { window: 10, max: 100 },
+						"/sign-in/*": { window: 10, max: 100 },
+					},
+				}
+			: {}),
 		// TODO: Enable database rate limiting
 		// storage: "database",
 		// modelName: "betterauth_ratelimit"

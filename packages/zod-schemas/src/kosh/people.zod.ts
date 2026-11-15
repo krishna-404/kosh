@@ -259,6 +259,8 @@ export const accessNoticesZod = z.object({
 	lost: z.array(
 		z.object({
 			grantId: z.string(),
+			/** One account, or all of a holder's accounts (`label` is then the holder's name). */
+			kind: z.enum(["account", "holder"]),
 			label: z.string(),
 			byName: z.string().nullable(),
 			at: z.number(),

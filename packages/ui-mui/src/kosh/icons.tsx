@@ -45,6 +45,7 @@ export { default as IconMail } from "@mui/icons-material/MailOutlineRounded";
 export { default as IconMore } from "@mui/icons-material/MoreHorizRounded";
 export { default as IconAddPerson } from "@mui/icons-material/PersonAddAltOutlined";
 export { default as IconPerson } from "@mui/icons-material/PersonOutlineRounded";
+export { default as IconRemovePerson } from "@mui/icons-material/PersonRemoveOutlined";
 export { default as IconPhone } from "@mui/icons-material/PhoneIphoneRounded";
 export { default as IconRefresh } from "@mui/icons-material/RefreshRounded";
 export { default as IconClock } from "@mui/icons-material/ScheduleRounded";

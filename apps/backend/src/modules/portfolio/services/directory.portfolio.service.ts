@@ -377,6 +377,7 @@ export async function getAccessNotices(meId: string): Promise<AccessNotices> {
 			const target = label(g);
 			return {
 				grantId: g.id,
+				kind: target.kind,
 				label: target.label,
 				byName: g.revokedByUserId
 					? (users.get(g.revokedByUserId)?.name ?? null)
