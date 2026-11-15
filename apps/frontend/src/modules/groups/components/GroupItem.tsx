@@ -1,15 +1,17 @@
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
-import { SpotIcon } from "@connected-repo/ui-mui/kosh/EmptyState";
-import { IconGroup, IconMore } from "@connected-repo/ui-mui/kosh/icons";
+import { IconMore } from "@connected-repo/ui-mui/kosh/icons";
 import { Money } from "@connected-repo/ui-mui/kosh/Money";
 import { SectionCard } from "@connected-repo/ui-mui/kosh/SectionCard";
 import { Tag } from "@connected-repo/ui-mui/kosh/Tag";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { IconButton } from "@connected-repo/ui-mui/navigation/IconButton";
 import { GROUPS } from "@frontend/copy/groups.copy";
+import { GroupTile } from "./GroupTile";
 
 interface GroupItemProps {
 	name: string;
+	/** Its place among the person's groups, oldest first — picks the tile's colour. */
+	tile: number;
 	/** "Family", "Fund manager"… — only when the group has a kind. */
 	kindLabel: string | null;
 	/** The labels of the accounts in it that the person can still see. */
@@ -25,20 +27,25 @@ interface GroupItemProps {
 }
 
 /**
- * One saved group: its name, its kind, what is in it. A row of one list on
- * desktop — the shape the comparison's columns (return, same money in NIFTY)
- * will be added to — and a card of its own on a phone.
+ * One saved group without its comparison: its name, its kind, what is in it.
+ * Shown while there is nothing to compare — no statement in any group's
+ * accounts yet, or the figures did not load — so the groups can still be
+ * changed. A row of one list on desktop, a card of its own on a phone.
  */
-export const GroupItem = ({ name, kindLabel, memberLabels, total, card, onMore }: GroupItemProps) => {
+export const GroupItem = ({
+	name,
+	tile,
+	kindLabel,
+	memberLabels,
+	total,
+	card,
+	onMore,
+}: GroupItemProps) => {
 	const count = GROUPS.accountsCount(memberLabels.length);
 	const empty = memberLabels.length === 0;
 	const members = empty ? GROUPS.noMembers : GROUPS.membersLine(memberLabels);
 
-	const icon = (
-		<SpotIcon size="sm">
-			<IconGroup />
-		</SpotIcon>
-	);
+	const icon = <GroupTile index={tile} />;
 	const title = (
 		<Typography variant="subtitle2" component="h2" noWrap sx={{ minWidth: 0 }}>
 			{name}

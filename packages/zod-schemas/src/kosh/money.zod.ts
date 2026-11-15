@@ -235,6 +235,8 @@ const groupRowZod = z.object({
 	aheadAmount: z.string().nullable(),
 	/** Under a year of history: shown, but not ranked. */
 	shortHistory: z.boolean(),
+	/** Nothing has been uploaded to any of its accounts: there are no figures at all. */
+	empty: z.boolean().optional(),
 	/** Calendar years in which it beat NIFTY, of those it has a full year for. */
 	yearsAhead: z.number().int(),
 	yearsCounted: z.number().int(),
@@ -249,7 +251,14 @@ export const groupsComparedZod = z.object({
 	years: z.array(
 		z.object({
 			year: z.number().int(),
-			cells: z.array(z.object({ groupId: z.string(), points: z.number().nullable() })),
+			cells: z.array(
+				z.object({
+					groupId: z.string(),
+					points: z.number().nullable(),
+					/** Not a whole year for this group: the year it started in, or the one still running. */
+					partial: z.boolean().optional(),
+				}),
+			),
 		}),
 	),
 	/** Groups share accounts, so their values must never be added up. */
@@ -271,6 +280,8 @@ export const whatIfZod = z.object({
 			name: z.string(),
 			kind: z.enum(["self", "group", "benchmark"]),
 			value: z.string().nullable(),
+			/** Why a group has no value here. Groups that share an account with this one are not listed at all. */
+			why: z.enum(["started_later", "nothing_uploaded"]).nullable().optional(),
 		}),
 	),
 });

@@ -326,7 +326,17 @@ describe("Money", () => {
 		const whatIf = await anil.money.whatIf({ groupId: solo.id });
 		expect(whatIf.rows.find((r) => r.kind === "self")).toMatchObject({ value: "139950.00" });
 		expect(whatIf.rows.find((r) => r.id === "nifty50")?.value).not.toBeNull();
-		expect(whatIf.rows.some((r) => r.id === both.id)).toBe(true);
+		// "Family" holds Anil's account too — partly the same money — so it is not offered to follow.
+		expect(whatIf.rows.some((r) => r.id === both.id)).toBe(false);
+		// A group that shares nothing with it is: Riya's own started later, so it has no value, and says why.
+		const riyas = await anil.portfolio.createGroup({ name: "Riya alone", kind: "personal", accountIds: [riyaAccount] });
+		const again = await anil.money.whatIf({ groupId: solo.id });
+		expect(again.rows.find((r) => r.id === riyas.id)).toMatchObject({ value: null, why: "started_later" });
+		// Part-years are marked: 2024 is whole for Anil's account (it began on 1 January), 2025 is still running.
+		const cells = (year: number) => compared.years.find((y) => y.year === year)?.cells.find((c) => c.groupId === solo.id);
+		expect(cells(2024)?.partial).toBe(false);
+		expect(cells(2025)?.partial).toBe(true);
+		expect(row?.empty).toBe(false);
 
 		// Someone else's group is not there to be asked about.
 		const stranger = await signUp();

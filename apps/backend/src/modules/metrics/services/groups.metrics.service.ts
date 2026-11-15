@@ -56,7 +56,7 @@ export async function getGroupsCompared(period: Period): Promise<GroupsCompared>
 		const cells = groups.map((g) => {
 			const s = g.selection;
 			// Only a year the group existed for, start to finish, is a fair year.
-			if (s.start === null || s.start > `${year}-12-31`) return { groupId: g.id, points: null };
+			if (s.start === null || s.start > `${year}-12-31`) return { groupId: g.id, points: null, partial: false };
 			const w = { from: `${year - 1}-12-31`, to: year === thisYear ? s.today : `${year}-12-31` };
 			const gross = coreReturns(s, w);
 			const core = afterFees(s, gross, w) ?? gross;
@@ -69,7 +69,8 @@ export async function getGroupsCompared(period: Period): Promise<GroupsCompared>
 				if (points > 0) t.ahead++;
 				tally.set(g.id, t);
 			}
-			return { groupId: g.id, points };
+			// The year the group started in, and the year still running, are not whole years.
+			return { groupId: g.id, points, partial: !full };
 		});
 		years.push({ year, cells });
 	}
@@ -103,6 +104,7 @@ export async function getGroupsCompared(period: Period): Promise<GroupsCompared>
 				aheadPoints: core.xirr !== null && shadow.xirr !== null ? core.xirr - shadow.xirr : null,
 				aheadAmount: shadow.value === null ? null : money(core.closing - shadow.value),
 				shortHistory: days < 365,
+				empty: g.selection.start === null,
 				yearsAhead: tally.get(g.id)?.ahead ?? 0,
 				yearsCounted: tally.get(g.id)?.counted ?? 0,
 				fees: net
@@ -150,12 +152,20 @@ export async function getWhatIf(groupId: string, period: Period): Promise<WhatIf
 	const rows: WhatIf["rows"] = [
 		{ id: mine.id, name: mine.name, kind: "self", value: money(core.closing) },
 		...groups
-			.filter((g) => g.id !== mine.id)
+			// A group that shares an account with this one is partly the same money:
+			// following it would be following yourself. It is left out.
+			.filter((g) => g.id !== mine.id && !g.accountIds.some((id) => mine.accountIds.includes(id)))
 			.map((g) => {
 				const shadow = shadowOf(core, w, indexOf(g.selection));
 				// Only fair if the other group was already running when this money first arrived.
-				const value = shadow.value !== null && shadow.availableFrom === null ? money(shadow.value) : null;
-				return { id: g.id, name: g.name, kind: "group" as const, value };
+				const fair = shadow.value !== null && shadow.availableFrom === null;
+				return {
+					id: g.id,
+					name: g.name,
+					kind: "group" as const,
+					value: fair ? money(shadow.value as number) : null,
+					why: fair ? null : g.selection.start === null ? ("nothing_uploaded" as const) : ("started_later" as const),
+				};
 			}),
 		...list.map((b) => {
 			const shadow = shadowOf(core, w, closes.get(b.instrumentId));

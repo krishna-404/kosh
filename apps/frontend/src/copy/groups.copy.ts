@@ -1,20 +1,33 @@
 /**
- * Words for Groups — the list, the new/edit dialog and delete — from the
- * design's wording board. A group is a person's own saved set of accounts;
- * nothing here may suggest that making one shares anything.
+ * Words for Groups — the comparison, "What if", year by year, the new/edit
+ * dialog and delete — from the design's wording board. A group is a person's
+ * own saved set of accounts; nothing here may suggest that making one shares
+ * anything.
  */
+
+import { MONEY } from "./money.copy";
 
 const plural = (n: number, one: string, many: string): string => (n === 1 ? one : many);
 
+const list =
+	(word: string) =>
+	(names: readonly string[]): string =>
+		names.length <= 1
+			? (names[0] ?? "")
+			: `${names.slice(0, -1).join(", ")} ${word} ${names[names.length - 1]}`;
+
 /** "Anil", "Anil or Riya", "Anil, Riya or Ramesh". */
-const orList = (names: readonly string[]): string =>
-	names.length <= 1
-		? (names[0] ?? "")
-		: `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+const orList = list("or");
+/** "Family", "Family and Kids", "Family, Kids and Ramesh". */
+const andList = list("and");
 
 export const GROUPS = {
-	subtitle:
-		"Sets of accounts to add up and compare — family, a fund manager, your own trading. Only you see them.",
+	/** The page's heading; the tab and the navigation keep the one word, "Groups". */
+	title: "Your groups, compared",
+	intro:
+		"A group is any set of accounts — a fund manager’s, a family’s, your own trading. Each is judged on its own deposits and withdrawals against NIFTY on the same dates.",
+	/** The same, for a phone's width. */
+	introShort: "Compared on the same money. Only you see your groups.",
 
 	// Buttons
 	newGroup: "New group",
@@ -36,8 +49,99 @@ export const GROUPS = {
 		labels.length <= shown
 			? labels.join(", ")
 			: `${labels.slice(0, shown).join(", ")} +${labels.length - shown} more`,
+	noAccountsShort: "No accounts",
 	noMembers:
 		"No accounts in this group — the ones it had are no longer shared with you, or it was saved empty.",
+
+	// The comparison
+	table: {
+		label: "Your groups, compared with NIFTY on the same money",
+		group: "Group",
+		moneyNow: "Money now",
+		return: "Return",
+		nifty: "NIFTY",
+		aheadOrBehind: "Ahead or behind, same money",
+		yearsAhead: "Years ahead",
+		more: "More",
+	},
+	/** What a tap on a group's name does. */
+	openIn: (name: string) => `${name} — open in Overview`,
+	// "ahead", "behind" and "a year" are the words every money page uses.
+	ahead: MONEY.ahead,
+	behind: MONEY.behind,
+	level: "level",
+	levelWith: "level with NIFTY",
+	aYear: MONEY.aYear,
+	niftyAt: "NIFTY",
+	/** "2 of 3" — full calendar years ahead of NIFTY. */
+	yearsOf: (ahead: number, counted: number) => `${ahead} of ${counted}`,
+	yearsOfShort: (ahead: number, counted: number) =>
+		`${ahead} of ${counted} ${plural(counted, "year", "years")} ahead`,
+	noFullYear: "No full year yet",
+	shortHistory: {
+		title: "Not enough history yet",
+		body: (name: string) =>
+			`Returns over less than a year swing a lot. We’ll compare ${name} once it has a full year.`,
+	},
+	nothingUploaded: "Nothing uploaded in its accounts yet, so there is nothing to compare.",
+	noReturn: "A return can’t be worked out from this group’s money yet.",
+	/** Under the table. */
+	sinceStart: "Return is the yearly rate (XIRR) since each group’s first money went in.",
+	overlapNote: (example: { account: string; groups: readonly string[] } | null) =>
+		`${
+			example
+				? `Groups can share accounts — ${example.account} is in ${example.groups.length === 2 ? "both " : ""}${andList(example.groups)}.`
+				: "Groups can share accounts."
+		} Compare them freely, but don’t add them up; that’s why there’s no total row.`,
+
+	// When no group has figures
+	noFigures: {
+		title: "Nothing to compare yet",
+		body: "None of the accounts in your groups has a statement yet. Upload one, and each group is compared with NIFTY on the same money.",
+		action: "Go to Accounts and people",
+	},
+	figuresFailed: "Couldn’t load the comparison. Your groups are still here.",
+	figuresStale: "Couldn’t refresh the comparison. These figures may be out of date.",
+
+	// What if
+	whatIf: {
+		lead: "What if the money in",
+		tail: "had followed another group?",
+		/** With no other group to follow. */
+		tailAlone: "had gone somewhere else?",
+		pick: "Choose the group whose money it is",
+		explain: (name: string) =>
+			`The deposits and withdrawals that really went through ${name}, on the days they happened, earning what each other group earned — or put somewhere else entirely.`,
+		explainAlone: (name: string) =>
+			`The deposits and withdrawals that really went through ${name}, on the days they happened, put somewhere else.`,
+		leftOut: (names: readonly string[], name: string) =>
+			`${andList(names)} ${names.length === 1 ? "shares" : "share"} accounts with ${name}, so ${names.length === 1 ? "it is" : "they are"} left out.`,
+		onlyGroup: "With one group there is no other group to follow yet.",
+		/** Beside the group's own row, where the others have their difference. */
+		happened: "what happened",
+		/** Why a row has no figure. */
+		startedLater: "started later",
+		noFiguresYet: "no figures yet",
+		noPrices: "no prices yet",
+		startedLaterNote: (names: readonly string[], name: string) =>
+			`${andList(names)} started after the first money went into ${name}, so there is nothing fair to compare.`,
+		caution:
+			"These are past returns: what the same money did elsewhere, not what it would do next.",
+		cautionSmaller: (small: string, smallWorth: string, name: string, worth: string) =>
+			`Past returns. ${small} holds much less money than ${name} (${smallWorth} against ${worth}) — a bigger one may not have done the same.`,
+		failed: "Couldn’t work this out.",
+		nothingYet: "Nothing uploaded yet",
+	},
+
+	// Year by year
+	years: {
+		title: "Year by year, ahead or behind NIFTY (percentage points)",
+		soFar: "so far",
+		partYear: "part of the year",
+		notThere: "not there yet",
+		note: (thisYear: number) =>
+			`Figures in a dashed outline cover part of a year: the year a group started, and ${thisYear} so far. “Years ahead” counts full calendar years only.`,
+	},
 
 	empty: {
 		title: "No groups yet",

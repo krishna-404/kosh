@@ -19,6 +19,9 @@ interface PageProps {
 	/** One sentence under the title: what this page is for. */
 	subtitle?: ReactNode;
 	eyebrow?: ReactNode;
+	/** Desktop only: a mark left of the title, and something on the title's own line. */
+	leading?: ReactNode;
+	titleEnd?: ReactNode;
 	/** Buttons beside the title on desktop (below the subtitle on a phone). */
 	actions?: ReactNode;
 	/** One icon button for the phone's app bar, e.g. "add". */
@@ -33,7 +36,18 @@ interface PageProps {
  * name where each layout wants it: an h1 on desktop, the app bar on a phone,
  * and the browser tab everywhere.
  */
-export const Page = ({ title, heading, subtitle, eyebrow, actions, barAction, back, children }: PageProps) => {
+export const Page = ({
+	title,
+	heading,
+	subtitle,
+	eyebrow,
+	leading,
+	titleEnd,
+	actions,
+	barAction,
+	back,
+	children,
+}: PageProps) => {
 	const slots = useShellSlots();
 	const navigate = useNavigate();
 
@@ -53,7 +67,14 @@ export const Page = ({ title, heading, subtitle, eyebrow, actions, barAction, ba
 					slots.leading,
 				)}
 			{slots.action && barAction && createPortal(barAction, slots.action)}
-			<PageHeader title={heading ?? title} subtitle={subtitle} eyebrow={eyebrow} actions={actions} />
+			<PageHeader
+				title={heading ?? title}
+				subtitle={subtitle}
+				eyebrow={eyebrow}
+				leading={leading}
+				titleEnd={titleEnd}
+				actions={actions}
+			/>
 			{children}
 		</Box>
 	);

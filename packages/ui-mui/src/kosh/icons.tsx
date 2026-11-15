@@ -25,6 +25,7 @@ export { default as IconInstall } from "@mui/icons-material/DownloadRounded";
 export { default as IconEdit } from "@mui/icons-material/EditOutlined";
 export { default as IconLeave } from "@mui/icons-material/ExitToAppRounded";
 export { default as IconChevronDown } from "@mui/icons-material/ExpandMoreRounded";
+export { default as IconDownload } from "@mui/icons-material/FileDownloadOutlined";
 export { default as IconUpload } from "@mui/icons-material/FileUploadOutlined";
 export { default as IconFilter } from "@mui/icons-material/FilterListRounded";
 export { default as IconGroup } from "@mui/icons-material/FolderOutlined";

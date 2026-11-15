@@ -9,6 +9,10 @@ interface PageHeaderProps {
 	subtitle?: ReactNode;
 	/** Small label above the title ("Welcome back, Ramesh"). */
 	eyebrow?: ReactNode;
+	/** A mark at the left of the title — a broker's mark on an account's page. Desktop only. */
+	leading?: ReactNode;
+	/** Something that belongs on the title's own line — the level badge beside an account's name. Desktop only. */
+	titleEnd?: ReactNode;
 	/** Buttons at the right, primary last. */
 	actions?: ReactNode;
 	/**
@@ -24,6 +28,8 @@ export const PageHeader = ({
 	title,
 	subtitle,
 	eyebrow,
+	leading,
+	titleEnd,
 	actions,
 	titleInAppBarOnPhone = true,
 	sx,
@@ -46,17 +52,25 @@ export const PageHeader = ({
 					{eyebrow}
 				</Typography>
 			)}
-			<Typography
-				variant="h1"
-				sx={titleInAppBarOnPhone ? { display: { xs: "none", md: "block" } } : undefined}
-			>
-				{title}
-			</Typography>
-			{subtitle && (
-				<Typography color="text.secondary" sx={{ mt: { xs: 0, md: 0.75 }, maxWidth: 640 }}>
-					{subtitle}
-				</Typography>
-			)}
+			<Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+				{leading && <Box sx={{ display: { xs: "none", md: "block" }, flex: "none" }}>{leading}</Box>}
+				<Box sx={{ minWidth: 0, flex: 1 }}>
+					<Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 1.5, rowGap: 0.5 }}>
+						<Typography
+							variant="h1"
+							sx={titleInAppBarOnPhone ? { display: { xs: "none", md: "block" } } : undefined}
+						>
+							{title}
+						</Typography>
+						{titleEnd && <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center" }}>{titleEnd}</Box>}
+					</Box>
+					{subtitle && (
+						<Typography color="text.secondary" sx={{ mt: { xs: 0, md: 0.75 }, maxWidth: 640 }}>
+							{subtitle}
+						</Typography>
+					)}
+				</Box>
+			</Box>
 		</Box>
 		{actions && (
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.25, alignItems: "center" }}>

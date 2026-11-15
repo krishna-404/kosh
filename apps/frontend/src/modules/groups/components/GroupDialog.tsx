@@ -16,12 +16,12 @@ import type { Directory, Group } from "@connected-repo/zod-schemas/kosh/people.z
 import { GROUPS } from "@frontend/copy/groups.copy";
 import { GROUP_KIND_LABEL } from "@frontend/copy/levels.copy";
 import { ROUTES } from "@frontend/copy/nav.copy";
-import { useRefreshPeople } from "@frontend/modules/access/people.queries";
 import { errorWords, firstNameOf } from "@frontend/modules/access/people.utils";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
+import { useRefreshGroups } from "../groups.queries";
 import {
 	accountsByHolder,
 	anyValue,
@@ -75,7 +75,8 @@ export const GroupDialog = ({ open, group, groups, directory, onClose }: GroupDi
 	const twoColumns = useMediaQuery(theme.breakpoints.up("md"));
 	const sheet = useMediaQuery(theme.breakpoints.down("sm"));
 	const snack = useSnack();
-	const refresh = useRefreshPeople();
+	// The comparison is worked out per group, so it is refetched with the groups.
+	const refresh = useRefreshGroups();
 	const kindLabelId = useId();
 	const accountsLabelId = useId();
 	const nameInput = useRef<HTMLInputElement | null>(null);
