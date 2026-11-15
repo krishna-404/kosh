@@ -1,8 +1,9 @@
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { CustomErrorBoundary } from "@frontend/components/error_fallback";
-import { AppLayout } from "@frontend/components/layout/AppLayout";
+import { AppShell } from "@frontend/components/layout/AppShell";
 import { RootLayout } from "@frontend/components/layout/RootLayout";
+import { HOME, ROUTES } from "@frontend/copy/nav.copy";
 import { authLoader } from "@frontend/utils/auth.loader";
 import * as Sentry from "@sentry/react";
 import { createBrowserRouter, type RouteObject, redirect } from "react-router";
@@ -40,6 +41,17 @@ const lazyRoute = (importer: () => Promise<{ default: React.ComponentType }>) =>
 		return { Component: mod.default };
 	};
 
+// The component gallery is a development and test aid, not a product page.
+const kitRoute: ReactRouterWithNavbar[] =
+	import.meta.env.MODE === "production"
+		? []
+		: [{ path: "kit", lazy: lazyRoute(() => import("@frontend/modules/kit/pages/Kit.page")) }];
+
+const page = (path: string, importer: () => Promise<{ default: React.ComponentType }>) => ({
+	path: path.replace(/^\//, ""),
+	lazy: lazyRoute(importer),
+});
+
 const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 	{
 		path: "/",
@@ -47,35 +59,33 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 		errorElement: <CustomErrorBoundary />,
 		hydrateFallbackElement: <HydrateFallback />,
 		children: [
-			{
-				index: true,
-				loader: () => redirect("/dashboard"),
-			},
+			{ index: true, loader: () => redirect(HOME) },
 			{
 				path: "auth/*",
 				lazy: lazyRoute(() => import("@frontend/modules/auth/auth.router")),
 			},
-			// Authenticated routes with AppLayout
+			...kitRoute,
+			// Signed-in pages, inside the app shell.
 			{
-				element: <AppLayout />,
+				element: <AppShell />,
 				loader: authLoader,
 				children: [
-					{
-						path: "dashboard",
-						lazy: lazyRoute(() => import("@frontend/pages/Dashboard.page")),
-					},
-					{
-						path: "profile",
-						lazy: lazyRoute(() => import("@frontend/pages/Profile.page")),
-					},
+					page(ROUTES.overview, () => import("@frontend/modules/money/pages/Overview.page")),
+					page(ROUTES.holdings, () => import("@frontend/modules/money/pages/Holdings.page")),
+					page(ROUTES.groups, () => import("@frontend/modules/groups/pages/Groups.page")),
+					page(
+						ROUTES.accounts,
+						() => import("@frontend/modules/access/pages/AccountsAndPeople.page"),
+					),
+					page(ROUTES.shared, () => import("@frontend/modules/access/pages/SharedWithMe.page")),
+					page(ROUTES.access, () => import("@frontend/modules/access/pages/WhoCanSeeWhat.page")),
+					page(ROUTES.activity, () => import("@frontend/modules/activity/pages/Activity.page")),
+					page(ROUTES.profile, () => import("@frontend/modules/profile/pages/Profile.page")),
 				],
 			},
 			// Anything else — including bookmarks to pages that no longer
-			// exist — goes to the dashboard instead of a blank screen.
-			{
-				path: "*",
-				loader: () => redirect("/dashboard"),
-			},
+			// exist, such as the old /dashboard — goes home instead of a blank screen.
+			{ path: "*", loader: () => redirect(HOME) },
 		],
 	},
 ];

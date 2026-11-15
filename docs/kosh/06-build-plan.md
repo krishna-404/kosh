@@ -64,8 +64,8 @@ apps/frontend/src/
 ```
 
 Guards so it stays that way:
-- `yarn lint:design` fails the build on a hex colour, an `rgb()` or a font family anywhere outside `theme/tokens.ts`, and on a direct `@mui/material` import in `apps/frontend` (the app imports MUI only through `ui-mui`).
-- A `/kit` route (dev and test builds only) renders every kit component in both themes; Playwright screenshots it, so a change to a shared component is seen everywhere it lands.
+- `yarn lint:design` (blocking in CI) fails on a hex colour, an `rgb()` or a font family anywhere outside `theme/tokens.ts`, and on a direct `@mui/*` import in `apps/frontend` (the app reaches MUI only through `ui-mui`). Scheme-dependent colours are read from the theme (`theme.vars.palette.kosh.*`); fixed measures (radii, sizes, avatar pastels) may be imported from `tokens.ts` inside `ui-mui`.
+- A `/kit` route (dev and test builds only) renders every kit component. An e2e test opens it in both themes, fails on any console error, and attaches a full-page picture of each to the test report — the reference for reviewing a change to a shared component. (No pixel comparison: font rendering differs between machines and would make it flaky.)
 - Fonts are self-hosted (`@fontsource-variable/*`), not fetched from Google, so the installed app and strict CSPs work.
 - Charts: one line chart built on `@mui/x-charts` and themed from the tokens; bars and tracks are plain styled boxes.
 

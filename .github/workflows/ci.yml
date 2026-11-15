@@ -60,6 +60,11 @@ jobs:
         run: yarn lint
         continue-on-error: true
 
+      # Blocking: colours and fonts live only in the design tokens, and the app
+      # reaches MUI only through the shared UI package.
+      - name: Design-system guard
+        run: yarn lint:design
+
       # Backend tests run against NODE_ENV=test using the committed
       # apps/backend/.env.test (placeholder values, DB pointed at localhost).
       # The postgres service above matches its postgres/postgres credentials;

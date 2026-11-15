@@ -39,7 +39,9 @@ src/
 │   ├── pages/
 │   ├── components/
 │   └── <module>.router.tsx
-├── components/                 # layout, notifications, PWA
+├── components/                 # app shell (layout/), notifications, PWA
+├── copy/                       # the wording board as code: nav, empty states
+├── configs/nav.config.tsx      # the destinations, once
 ├── sw/                         # service worker (see src/sw/AGENTS.md)
 └── utils/
     ├── auth.loader.ts          # session gate for authenticated routes
@@ -59,10 +61,39 @@ const create = useMutation(orpc.portfolio.createPerson.mutationOptions());
 `OfflineBanner` tells the user the app needs a connection. Nothing is queued:
 a request made while offline simply fails and the user retries.
 
+### Design system (read before building any screen)
+The look of Kosh lives in `packages/ui-mui`, in four layers (see
+`packages/ui-mui/AGENTS.md` and `docs/kosh/06-build-plan.md` §2):
+
+1. **Tokens** — `theme/tokens.ts`, the only file with colours, shadows, fonts.
+2. **Theme** — MUI theme with light + dark as CSS variables; component overrides.
+3. **Kit** — `kosh/*`: `LevelBadge`, `HolderAvatar`, `BrokerMark`, `Money`,
+   `Percent`, `Tag`, `Banner`, `SectionCard`, `HeroCard`, `Stat`, `RowItem`,
+   `EmptyState`, `FilterChips`, `Segmented`, `ResponsiveDialog`, `ConfirmDialog`,
+   bars, `useSnack`, icons by meaning (`IconOwner`, not "a key").
+4. **App** — pages compose kit components and call oRPC. Nothing else.
+
+Rules, enforced by `yarn lint:design` (blocking in CI):
+- No colour literal, `rgb()` or font family in `apps/frontend`. Use
+  `theme.vars.palette.kosh.*` in `sx` callbacks, or a kit component.
+- No direct `@mui/*` import in `apps/frontend`; import through
+  `@connected-repo/ui-mui/...`. Add a re-export there if one is missing.
+- Need something the kit lacks? Add it to the kit and to the `/kit` gallery
+  (`src/modules/kit`), then use it. Do not restyle MUI in a page.
+- Every routed screen is a `<Page title=…>` (`components/layout/Page.tsx`): it
+  sets the h1 on desktop, the app-bar title on a phone, and the tab title.
+- Amounts and rates go through `<Money>` / `<Percent>`; never format by hand.
+- Say what happened with `useSnack()` (or `notify()` outside React).
+- Words come from `src/copy/*` — "Can view", "Can edit", "Owner", "person",
+  "remove"; never role, tenant, grant, revoke, user.
+
 ### UI Standards
-- **Design**: Tasteful, smooth (200-300ms transitions), responsive.
+- **Motion**: 200–300ms transitions; honours reduced-motion (handled by the theme).
 - **Imports**: Direct imports only (NO barrel exports).
-- **Responsive**: `xs` for mobile, `md`+ for desktop. Touch targets min 44px.
+- **Responsive**: `xs` for phone, `md`+ for desktop. Touch targets min 44px.
+- **Shell**: sidebar on desktop, app bar + four bottom tabs on a phone
+  (`components/layout/AppShell.tsx`); destinations are declared once in
+  `configs/nav.config.tsx`.
 
 ### Testing
 - **E2E**: Playwright tests are state-dependent. Use conditional logic.

@@ -87,8 +87,10 @@ export default defineConfig(({ mode }) => {
 					short_name: "Kosh",
 					start_url: "/",
 					display: "standalone",
-					background_color: "#ffffff",
-					theme_color: "#1976d2",
+					// Kosh green and the light page background
+					// (packages/ui-mui/src/theme/tokens.ts: `accent`, `bg`).
+					background_color: "#F1FAF5",
+					theme_color: "#0B7A63",
 					icons: [
 						{
 							src: 'android-chrome-192x192.png',

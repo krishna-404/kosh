@@ -7,51 +7,32 @@
  * (at your option) any later version.
  */
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
-import { ThemeContextProvider, useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
+import { SnackProvider, useSnack } from "@connected-repo/ui-mui/kosh/SnackProvider";
+import { KoshThemeProvider } from "@connected-repo/ui-mui/theme/ThemeProvider";
 import { CustomErrorBoundary } from "@frontend/components/error_fallback";
+import { BOTTOM_NAV_HEIGHT } from "@frontend/components/layout/PhoneBars";
 import { PwaInstallHost } from "@frontend/components/notifications/PwaInstallHost";
 import { router } from "@frontend/router";
-import { LocalizationProvider } from "@mui/x-date-pickers";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { bindNotifier } from "@frontend/utils/notify";
 import { ErrorBoundary } from "@sentry/react";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { RouterProvider } from "react-router";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+
+/** Connects `notify()` (usable outside React) to the snackbar. */
+function NotifyBridge() {
+	const snack = useSnack();
+	useEffect(() => bindNotifier(snack), [snack]);
+	return null;
+}
 
 // App focuses on rendering the router tree and error boundaries. Providers
 // (QueryClient + oRPC client) are created and mounted at the root in
 // `main.tsx` following the oRPC + TanStack React Query recommended setup.
-function ToastProvider() {
-	const { mode } = useThemeMode();
-
-	return (
-		<ToastContainer
-			position="top-right"
-			autoClose={5000}
-			hideProgressBar={false}
-			newestOnTop={false}
-			closeOnClick
-			rtl={false}
-			pauseOnFocusLoss
-			draggable
-			pauseOnHover
-			theme={mode}
-			style={{
-				fontFamily:
-					'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-			}}
-			toastStyle={{
-				borderRadius: "5px",
-			}}
-		/>
-	);
-}
-
 function App() {
 	return (
-		<LocalizationProvider dateAdapter={AdapterDayjs}>
-			<ThemeContextProvider>
+		<KoshThemeProvider>
+			<SnackProvider phoneBottomOffset={BOTTOM_NAV_HEIGHT}>
+				<NotifyBridge />
 				<Suspense fallback={<LoadingSpinner text="Loading..." />}>
 					<ErrorBoundary
 						fallback={<CustomErrorBoundary />}
@@ -61,12 +42,11 @@ function App() {
 					>
 						<PwaInstallHost>
 							<RouterProvider router={router} />
-							<ToastProvider />
 						</PwaInstallHost>
 					</ErrorBoundary>
 				</Suspense>
-			</ThemeContextProvider>
-		</LocalizationProvider>
+			</SnackProvider>
+		</KoshThemeProvider>
 	);
 }
 

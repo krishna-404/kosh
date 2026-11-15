@@ -2,10 +2,10 @@ import { userContext } from "@frontend/contexts/UserContext";
 import { setSentryUser } from "@frontend/instrumentation";
 import { authClient } from "@frontend/utils/auth.client";
 import { saveLastLogin } from "@frontend/utils/auth.persistence";
+import { notify } from "@frontend/utils/notify";
 import { detectUserTimezone } from "@frontend/utils/timezone.utils";
 import type { LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
-import { toast } from "react-toastify";
 
 /**
  * Auth loader for protected routes
@@ -31,25 +31,16 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 		try {
 			const detectedTimezone = await detectUserTimezone();
 			if (detectedTimezone && detectedTimezone !== session.user.timezone) {
-				toast.info(`Timezone change detected. Updating timezone to match your current location.`, {
-					position: "top-center",
-					autoClose: 1000,
-				});
-
 				await authClient.updateUser({ timezone: detectedTimezone });
 
 				// Update the session user object with the new timezone
 				session.user.timezone = detectedTimezone;
 
-				// Show toast notification
-				toast.success(`Your timezone has been updated to match your current location`, {
-					position: "top-center",
-					autoClose: 3000,
-				});
+				notify(`Times are now shown in ${detectedTimezone}, to match where you are.`);
 			}
 		} catch (timezoneError) {
 			console.error(timezoneError);
-			toast.error("Timezone detection/update failed.");
+			notify("Couldn't update your time zone. Times may be shown in your old one.");
 		}
 
 		const sessionInfo = {

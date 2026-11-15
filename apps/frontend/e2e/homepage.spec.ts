@@ -1,15 +1,14 @@
 import { expect, test } from './fixtures';
 
-test('homepage loads and redirects appropriately', async ({ page }) => {
+test('the root address lands on the overview when signed in', async ({ page }) => {
   await page.goto('/');
-  await page.waitForURL((url) => url.pathname === '/auth/login' || url.pathname === '/dashboard');
+  await page.waitForURL('**/overview');
+  await expect(page.getByRole('button', { name: /your menu/i })).toBeVisible();
+});
 
-  const currentURL = page.url();
-  if (currentURL.includes('/auth/login')) {
-    // Unauthenticated state: should redirect to login
-    await expect(page.locator('h3')).toContainText('Welcome');
-  } else if (currentURL.includes('/dashboard')) {
-    // Authenticated state: should redirect to dashboard or new entry page
-    await expect(page.locator('[aria-label*="User menu"]')).toBeVisible();
-  }
+test('an address that does not exist goes home instead of a blank page', async ({ page }) => {
+  await page.goto('/dashboard');
+  await page.waitForURL('**/overview');
+  await page.goto('/no-such-page');
+  await page.waitForURL('**/overview');
 });

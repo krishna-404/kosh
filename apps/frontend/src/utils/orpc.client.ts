@@ -1,8 +1,8 @@
 import { env } from "@frontend/configs/env.config";
+import { notify } from "@frontend/utils/notify";
 import { createORPCClient, onError } from '@orpc/client';
 import { RPCLink } from '@orpc/client/fetch';
 import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins';
-import { toast } from 'react-toastify';
 import type { UserAppRouter, UserAppRouterInputs, UserAppRouterOutputs } from "../../../backend/src/routers/user_app/user_app.router";
 import { signout } from './signout.utils';
 
@@ -70,7 +70,7 @@ const link = new RPCLink<ClientContext>({
 
       // For auth errors, sign out and send the user back to login.
       if (isAuthError) {
-        toast.error("Your session has expired. Please log in again.", { autoClose: 3000 });
+        notify("You've been signed out. Sign in again to carry on.");
         await signout();
       }
     })

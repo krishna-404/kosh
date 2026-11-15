@@ -9,7 +9,6 @@ export interface UseRhfFormProps<T extends FieldValues> {
     show: boolean;
     props?: FormErrorDisplayerProps;
   }
-  numLockAlert?: boolean;
   onInvalid?: RhfFormProviderProps<T>["onInvalid"];
   onError?: RhfFormProviderProps<T>["onError"];
   clearRootErrorOnChange?: boolean;
@@ -21,7 +20,6 @@ export const useRhfForm = <T extends FieldValues>({
   errorDisplayer = {
     show: true,
   },
-  numLockAlert = true,
   onInvalid,
   onError,
   clearRootErrorOnChange = true,
@@ -44,7 +42,6 @@ export const useRhfForm = <T extends FieldValues>({
           formMethods={formMethods}
           onSubmit={onSubmit}
           errorDisplayer={errorDisplayer}
-          numLockAlert={numLockAlert}
           onInvalid={onInvalid}
           onError={onError}
           clearRootErrorOnChange={clearRootErrorOnChange}
@@ -57,7 +54,6 @@ export const useRhfForm = <T extends FieldValues>({
       formMethods,
       onSubmit,
       errorDisplayer,
-      numLockAlert,
       onInvalid,
       onError,
       clearRootErrorOnChange,

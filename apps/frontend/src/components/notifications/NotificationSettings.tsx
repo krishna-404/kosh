@@ -1,19 +1,19 @@
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Button } from "@connected-repo/ui-mui/form/Button";
 import { Switch } from "@connected-repo/ui-mui/form/Switch";
+import { IconInstall } from "@connected-repo/ui-mui/kosh/icons";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card } from "@connected-repo/ui-mui/layout/Card";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { usePwaInstallCtx } from "@frontend/components/notifications/PwaInstallHost";
 import { getDeviceEnv } from "@frontend/utils/device.utils";
+import { notify } from "@frontend/utils/notify";
 import {
 	isPushEnabledOnThisDevice,
 	promptAndRegisterPush,
 	revokePushForUser,
 } from "@frontend/utils/push.utils";
-import InstallMobileIcon from "@mui/icons-material/InstallMobile";
 import { useState } from "react";
-import { toast } from "react-toastify";
 
 const permissionLabel = () => {
 	if (typeof Notification === "undefined") return "unsupported";
@@ -35,7 +35,7 @@ export const NotificationSettings = () => {
 		// while the network is dead can leave the browser in a permission-default
 		// state that never gets a follow-up register. Refuse fast, don't prompt.
 		if (nextOn && typeof navigator !== "undefined" && !navigator.onLine) {
-			toast.info("You're offline. Reconnect to change push settings.");
+			notify("You're offline. Reconnect to change push settings.");
 			return;
 		}
 		setPushPending(true);
@@ -44,20 +44,20 @@ export const NotificationSettings = () => {
 				const result = await promptAndRegisterPush();
 				if (result === "granted") {
 					setPushOn(true);
-					toast.success("Push notifications enabled");
+					notify("Push notifications enabled");
 				} else if (result === "denied") {
-					toast.info(
+					notify(
 						"Push is blocked by the browser. Enable it in site settings, then try again.",
 					);
 					setPushOn(false);
 				} else {
-					toast.info("Push is not supported in this browser.");
+					notify("Push is not supported in this browser.");
 					setPushOn(false);
 				}
 			} else {
 				await revokePushForUser({ stickyOptOut: true });
 				setPushOn(false);
-				toast.success("Push notifications disabled on this device");
+				notify("Push notifications disabled on this device");
 			}
 		} finally {
 			setPushPending(false);
@@ -65,17 +65,10 @@ export const NotificationSettings = () => {
 	};
 
 	return (
-		<Card
-			sx={{
-				p: 3,
-				borderRadius: 2,
-				border: "1px solid",
-				borderColor: "divider",
-			}}
-		>
+		<Card sx={{ p: 2.5 }}>
 			<Stack spacing={2}>
 				<Box>
-					<Typography variant="h6" sx={{ fontWeight: 700 }}>
+					<Typography variant="h3" component="h2">
 						Notifications
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
@@ -104,7 +97,7 @@ export const NotificationSettings = () => {
 						<Button
 							variant="outlined"
 							size="small"
-							startIcon={<InstallMobileIcon />}
+							startIcon={<IconInstall />}
 							onClick={() => void pwa.install()}
 						>
 							Install app
@@ -134,7 +127,7 @@ export const NotificationSettings = () => {
 						<Button
 							variant="text"
 							size="small"
-							startIcon={<InstallMobileIcon />}
+							startIcon={<IconInstall />}
 							onClick={() => void pwa.install()}
 						>
 							Install

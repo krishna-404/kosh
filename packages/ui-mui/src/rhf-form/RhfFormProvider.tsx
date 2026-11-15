@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import { type FieldErrors, type FieldValues, FormProvider, type UseFormReturn } from "react-hook-form";
-import { NumLockAlert } from "../feedback/NumLockAlert";
 import { FormErrorDisplayer, type FormErrorDisplayerProps } from "./FormErrorDisplayer";
 
 export interface RhfFormProviderProps<T extends FieldValues> {
@@ -9,7 +8,6 @@ export interface RhfFormProviderProps<T extends FieldValues> {
     show: boolean;
     props?: FormErrorDisplayerProps;
   };
-  numLockAlert?: boolean;
   formMethods: UseFormReturn<T>;
   onSubmit: (data: T) => Promise<void>;
   onInvalid?: (errors: FieldErrors<T>) => void;
@@ -23,7 +21,6 @@ export const RhfFormProvider = <T extends FieldValues>({
   errorDisplayer = {
     show: true
   },
-  numLockAlert = true,
   children,
   onInvalid,
   onError,
@@ -88,7 +85,6 @@ export const RhfFormProvider = <T extends FieldValues>({
 
   return (
     <FormProvider {...formMethods}>
-      {numLockAlert && <NumLockAlert />}
 
       <form onSubmit={handleSubmit(onValid, onInvalidSubmit)} noValidate>
         {errorDisplayer && <FormErrorDisplayer {...errorDisplayer?.props} />}

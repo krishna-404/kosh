@@ -1,9 +1,9 @@
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { APP_VERSION } from "@frontend/utils/app_version";
+import { notify } from "@frontend/utils/notify";
 import { checkForSwUpdate } from "@frontend/utils/sw_update_check";
 import { useState } from "react";
-import { toast } from "react-toastify";
 
 interface AppVersionLabelProps {
 	/** Prefix text before the version, e.g. "Kosh · ". */
@@ -29,11 +29,11 @@ export const AppVersionLabel = ({
 		try {
 			const result = await checkForSwUpdate();
 			if (result === "already-updating") {
-				toast.info("A new version is downloading…");
+				notify("A new version is downloading…");
 			} else if (result === "up-to-date") {
-				toast.success("You're on the latest version.");
+				notify("You're on the latest version.");
 			} else {
-				toast.error("Couldn't reach the update server.");
+				notify("Couldn't reach the update server.");
 			}
 		} finally {
 			setChecking(false);

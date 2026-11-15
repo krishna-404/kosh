@@ -6,7 +6,9 @@
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  */
+import "@frontend/fonts";
 import App from "@frontend/App.tsx";
+import { applyStoredColorScheme } from "@frontend/utils/color_scheme";
 import { queryClient } from "@frontend/utils/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
@@ -16,6 +18,9 @@ import { initInstrumentation } from "./instrumentation";
 // Defensive mounting: ensure the root element exists and create the root
 // only once. This pattern is compatible with React 18/19 root API and is
 // resilient for incremental upgrades and hydration strategies.
+// Paint in the right colour scheme from the first frame.
+applyStoredColorScheme();
+
 const container = document.getElementById("root");
 if (!container) {
 	throw new Error("Root element with id \"root\" not found");
