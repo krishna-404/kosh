@@ -88,7 +88,9 @@ export function parseTemplateTrades(table: Table): ParseResult<ZerodhaTrade, Zer
 	table.slice(header.rowIndex + 1).forEach((record, i) => {
 		if (isBlankRow(record)) return;
 		const row = i + 1;
-		const fail = (code: RowError["code"], message: string) => errors.push({ row, code, message });
+		const fail = (code: RowError["code"], message: string): void => {
+			errors.push({ row, code, message });
+		};
 
 		const tradeDate = readDate(cell(record, col("date")));
 		const side = SIDES[cell(record, col("type")).toLowerCase()];
@@ -179,7 +181,9 @@ export function parseTemplateCash(table: Table): ParseResult<TemplateCashLine, Z
 	table.slice(header.rowIndex + 1).forEach((record, i) => {
 		if (isBlankRow(record)) return;
 		const row = i + 1;
-		const fail = (code: RowError["code"], message: string) => errors.push({ row, code, message });
+		const fail = (code: RowError["code"], message: string): void => {
+			errors.push({ row, code, message });
+		};
 
 		const postingDate = readDate(cell(record, col("date")));
 		const description = cell(record, col("description"));
