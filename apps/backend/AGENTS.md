@@ -14,9 +14,16 @@
 ---
 
 ## 2. Active Task
-**Context**: Foundation simplification — sync protocol and teams module removed; access is per broker account (`access_grants`).
-**Current Status**: Completed. The import pipeline is covered by DB-level tests (`modules/imports/zerodha_import.test.ts`) and access by `modules/portfolio/access.test.ts`.
-**Intent**: Ready for the first usable slice (accounts + import UI, fund-flow XIRR).
+**Context**: Building Kosh phase by phase per `docs/kosh/06-build-plan.md` (its table says where each phase stands).
+**Current Status**: Server side of phases 2–7 is in: sharing, statements and questions, market data, returns, splits and bonuses, dividends, fees, and Kosh's own statement layout for any broker.
+**Where things live** (`src/modules/`):
+- `portfolio` — people, accounts, groups, access (`access.portfolio.service.ts` is the only place levels are decided), the directory, activity.
+- `imports` — preview / apply / undo of statements; `questions` — what Kosh could not work out, and the answers.
+- `market-data` — downloads (stored verbatim in `provider_payloads`), closes, the sync.
+- `metrics` — the per-account day-by-day series (in memory, keyed by `ledgerVersion:pricesVersion:today`) and everything computed from it: returns, holdings, groups compared, what-if.
+- `corporate-actions`, `dividends`, `fees` — each registers itself with the series (`setQuantityFactorSource`, `setDividendSource`, `setFeeSource`) rather than being imported by it.
+- Anything that changes an account's ledger calls `onLedgerChanged(accountId)`; anything that changes what the figures mean calls `bumpLedger(accountId)`.
+**Tests**: each module has a `*.test.ts` that drives the real routers as different people against Postgres. Contracts are zod schemas in `packages/zod-schemas/src/kosh/*` and every endpoint declares its `.output()`.
 
 ---
 

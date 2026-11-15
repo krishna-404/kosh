@@ -2,6 +2,34 @@
 
 Two pipelines: **broker files** (user-uploaded, per family) and **reference data** (system-wide feeds). Both write Layer 1 verbatim, pass the validation gate, and emit Layer-2 events. Nothing else writes the ledger.
 
+## 0. As built (November 2026)
+
+The sections below are the design. This is what the code does today; where they differ, this section is right.
+
+**Statements** (`apps/backend/src/modules/imports`, readers in `packages/broker-parsers`)
+- One endpoint pair: `imports.preview` (changes nothing) and `imports.apply` (all of the file or none), then `imports.undo`. The file's kind is detected from its columns; nobody picks a type. CSV and XLSX. The file is stored byte for byte in `import_files` next to its batch.
+- Readers: **Zerodha** tradebook, ledger and holdings statement; and **Kosh's own layout** for an account at any other broker — two plain tables (`date, type, symbol, isin, quantity, price` and `date, description, money in, money out, balance`, with an optional `what`), handed out by `imports.layouts`. Both produce the same row shapes, so duplicates, questions and undo are one code path.
+- A ledger must reproduce its own running balance to the paisa or nothing is applied. Duplicates are skipped line by line (two identical lines on one day are two lines).
+- Not built: Groww and Dhan readers, CAS, Zerodha's dividend statement — each needs a real sample file first. The Zerodha holdings reader is written from the published layout and has not been checked against a real export.
+
+**Questions** (`modules/questions`) — what Kosh could not work out: an unrecognised ledger line, a trade with no ISIN, an opening balance nobody has explained, money that left one account and arrived in another, a split or bonus it was not sure of, a holdings statement that disagrees with its working. Every answer is an event and can be undone.
+
+**Reference data** (`modules/market-data`)
+| Feed | Source | Notes |
+|---|---|---|
+| NSE closes | bhavcopy zip per trading day, from `nsearchives.nseindia.com` (old layout to 5 Jul 2024, UDiFF after) | matched by ISIN; a face-value split's new ISIN is followed |
+| Fund NAVs | AMFI `NAVAll.txt` for the scheme list; `api.mfapi.in` for a scheme's history | |
+| "Same money in NIFTY 50" | NAV of UTI Nifty 50 Index Fund (regular, growth) | what an investor could really have earned, dividends included — not the TRI |
+| Gold | NAV of Nippon India Gold Savings Fund | |
+| Splits, bonuses, dividends | NSE `corporates-corporateActions` per symbol held | |
+Every download is stored verbatim in `provider_payloads` and parsed from there. Closes are kept only for instruments someone holds, plus the benchmarks. The sync is leased, bounded per run and resumable; it runs after an upload and on a daily cron, and is off in tests (`MARKET_DATA_SYNC`). BSE, the NIFTY TRI site, IBJA and FX are not fetched.
+
+**Splits and bonuses** (`modules/corporate-actions`) — an announcement is read part by part; one read with certainty is applied to each account that held the share on the ex-date, the rest become questions; applied ones can be undone. Mergers and demergers are not applied automatically.
+
+**Dividends** (`modules/dividends`) — worked out from the announcement × the shares held going into the ex-date, counted from the ex-date (the feed has no pay date) as money earned and paid out to the holder's bank; confirmed, corrected or struck out by a person.
+
+**Fund-manager fees** (`modules/fees`) — set per account by an owner (percentage of assets, fixed, profit share above a hurdle, or invoiced payments); counted as money the holder also paid, so every return is after fees with the before-fees figure beside it.
+
 ## 1. Broker file imports (v1 connectivity — owner decision)
 
 ### 1.1 Pipeline

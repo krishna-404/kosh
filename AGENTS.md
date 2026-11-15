@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Foundation simplification — online-only, access per broker account instead of teams.
-- **Status**: Completed.
-- **Context**: Offline-first layer (workers, Dexie, OPFS, sync protocol) and the teams module removed; `access_grants` gives a user view/edit/owner on an account or a holder, and there is no tenant column. Import pipeline has DB-level tests again. Next: the first usable slice — accounts + import UI and fund-flow XIRR (docs/kosh/05-roadmap.md).
+- **Objective**: Build Kosh end to end, phase by phase — `docs/kosh/06-build-plan.md`.
+- **Status**: In progress. The plan's table ("Where each stands") is kept current; read it before starting work.
+- **Context**: Foundation (online-only, access per account), the design system and shell, and people/accounts/sharing are complete. The server side of statements, prices and returns, splits and bonuses, dividends, fees and any-broker uploads is complete; their screens are being built. Foreign shares and crypto are not started (price sources undecided).
 
 ## Layer 3: Decision Records
 
