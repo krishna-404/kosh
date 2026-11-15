@@ -46,15 +46,25 @@ export const useMarketStatus = () => useQuery(orpc.money.market.queryOptions());
 
 /**
  * After anything that changes what the figures are built from — an upload,
- * an undo, an answer, a split applied — refetch every figure on screen, the
- * questions, the uploads and the lists that carry values.
+ * an undo, an answer, a split applied, a dividend confirmed, a fee set —
+ * refetch every figure on screen, the questions, the uploads, dividends,
+ * fees and the lists that carry values.
  */
 export const useRefreshMoney = () => {
 	const queryClient = useQueryClient();
 	return useCallback(
 		() =>
 			Promise.all(
-				[orpc.money, orpc.questions, orpc.imports, orpc.ledger, orpc.portfolio, orpc.activity].map((router) =>
+				[
+					orpc.money,
+					orpc.questions,
+					orpc.imports,
+					orpc.ledger,
+					orpc.dividends,
+					orpc.fees,
+					orpc.portfolio,
+					orpc.activity,
+				].map((router) =>
 					queryClient.invalidateQueries({ queryKey: router.key() }),
 				),
 			),

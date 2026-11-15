@@ -61,6 +61,10 @@ const devPages =
 					"/kit/statements/:accountId",
 					() => import("@frontend/modules/kit/pages/StatementsPreview.page"),
 				),
+				page(
+					"/kit/panel/:panel/:accountId",
+					() => import("@frontend/modules/kit/pages/PanelPreview.page"),
+				),
 			];
 
 const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
