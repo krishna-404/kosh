@@ -1,10 +1,12 @@
 import Button from "@mui/material/Button";
+import Portal from "@mui/material/Portal";
 import Snackbar from "@mui/material/Snackbar";
 import {
 	createContext,
 	type ReactNode,
 	useCallback,
 	useContext,
+	useEffect,
 	useMemo,
 	useState,
 } from "react";
@@ -35,6 +37,33 @@ interface SnackProviderProps {
 	phoneBottomOffset?: number;
 }
 
+/**
+ * Where snackbars are drawn: one element directly under <body>.
+ *
+ * An open dialog hides everything else on the page from assistive
+ * technology (`aria-hidden`), which would silence "Invite sent" when it is
+ * said while the dialog stays open. What just happened must still be
+ * announced, so this one element is kept out of that.
+ */
+const useSnackContainer = (): HTMLElement | null => {
+	const [container, setContainer] = useState<HTMLElement | null>(null);
+	useEffect(() => {
+		const element = document.createElement("div");
+		element.setAttribute("data-kosh-snacks", "");
+		document.body.appendChild(element);
+		const observer = new MutationObserver(() => {
+			if (element.hasAttribute("aria-hidden")) element.removeAttribute("aria-hidden");
+		});
+		observer.observe(element, { attributes: true, attributeFilter: ["aria-hidden"] });
+		setContainer(element);
+		return () => {
+			observer.disconnect();
+			element.remove();
+		};
+	}, []);
+	return container;
+};
+
 export const SnackProvider = ({ children, phoneBottomOffset = 0 }: SnackProviderProps) => {
 	// One at a time: a new note replaces the one showing.
 	const [current, setCurrent] = useState<(Snack & { key: number }) | null>(null);
@@ -47,10 +76,12 @@ export const SnackProvider = ({ children, phoneBottomOffset = 0 }: SnackProvider
 	}, []);
 
 	const value = useMemo(() => notify, [notify]);
+	const container = useSnackContainer();
 
 	return (
 		<SnackContext.Provider value={value}>
 			{children}
+			<Portal container={container} disablePortal={container === null}>
 			<Snackbar
 				key={current?.key}
 				open={open}
@@ -76,6 +107,7 @@ export const SnackProvider = ({ children, phoneBottomOffset = 0 }: SnackProvider
 				}
 				sx={{ mb: { xs: `${phoneBottomOffset}px`, md: 0 } }}
 			/>
+			</Portal>
 		</SnackContext.Provider>
 	);
 };
