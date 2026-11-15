@@ -1,4 +1,5 @@
 import { db } from "@backend/db/db";
+import { toMoney } from "@backend/modules/imports/lib/decimal.imports";
 import {
 	inList,
 	requireAccess,
@@ -17,6 +18,27 @@ import type {
 //   - adding an account, uploads, undos and answers: anyone who can see the account;
 //   - access changes: owners of the target only — plus changes to the
 //     caller's own access, so nobody is surprised by what happened to them.
+
+/** How an answer about a ledger line reads in a sentence. */
+const ANSWER_WORDS: Record<string, string> = {
+	external_deposit: "money put in",
+	external_withdrawal: "money taken out",
+	charge: "a charge",
+	interest: "interest",
+	trade_settlement: "part of a trade settling",
+	other_internal: "neither money in nor out",
+};
+
+/** Rupees with Indian grouping, no paise: "1234567.00" → "12,34,567". */
+const formatInr = (amount: string): string => {
+	const whole = toMoney(amount).split(".")[0] ?? "0";
+	const digits = whole.replace("-", "");
+	const grouped =
+		digits.length <= 3
+			? digits
+			: `${digits.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ",")},${digits.slice(-3)}`;
+	return whole.startsWith("-") ? `−${grouped}` : grouped;
+};
 
 interface ListInput {
 	accountId?: string;
@@ -94,9 +116,46 @@ export async function listActivity(
 		for (const p of previous) byId.set(p.id, p);
 	}
 
+	// Statements: uploads, undos and answers — for anyone who can see the account.
+	const wantsUploads = input.filter === "all" || input.filter === "uploads";
+	const wantsAnswers = input.filter === "all" || input.filter === "answers";
+	const accountIds = accounts.map((a) => a.id);
+	const batches =
+		wantsUploads && accountIds.length > 0
+			? await db.importBatches
+					.where({ accountId: { in: accountIds }, status: { in: ["applied", "retracted"] } })
+					.select("id", "accountId", "fileName", "kind", "uploadedByUserId", "appliedAt", "createdAt", "stats")
+			: [];
+	const ledgerEvents =
+		(wantsUploads || wantsAnswers) && accountIds.length > 0
+			? await db.events
+					.where({
+						accountId: { in: accountIds },
+						kind: { in: ["retraction", "user_resolution"] },
+					})
+					.select("id", "accountId", "kind", "payload", "userId", "occurredAt")
+			: [];
+	const transfers = wantsAnswers
+		? (
+				await db.transferLinks.select(
+					"id",
+					"outAccountId",
+					"inAccountId",
+					"same",
+					"decidedByUserId",
+					"createdAt",
+				)
+			).filter(
+				(l) => !input.accountId || l.outAccountId === input.accountId || l.inAccountId === input.accountId,
+			)
+		: [];
+
 	const users = await usersById([
 		...grants.flatMap((g) => [g.userId, g.grantedByUserId, g.revokedByUserId]),
 		...accounts.map((a) => a.createdByUserId),
+		...batches.map((b) => b.uploadedByUserId),
+		...ledgerEvents.map((e) => e.userId),
+		...transfers.map((t) => t.decidedByUserId),
 	]);
 	const person = (userId: string | null) => {
 		if (!userId) return null;
@@ -202,6 +261,86 @@ export async function listActivity(
 				kind: endKind,
 				actor: person(g.revokedByUserId),
 			});
+	}
+
+	const accountTarget = (accountId: string | null) => {
+		const a = accountId ? accountById.get(accountId) : undefined;
+		return a ? { kind: "account" as const, id: a.id, label: a.label } : null;
+	};
+	const plain = { subject: null, level: null, fromLevel: null };
+
+	for (const b of batches) {
+		const stats = (b.stats ?? {}) as { new?: number; questions?: number };
+		const lines = Number(stats.new ?? 0);
+		const questions = Number(stats.questions ?? 0);
+		items.push({
+			...plain,
+			id: `${b.id}:upload`,
+			at: b.appliedAt ?? b.createdAt,
+			kind: "upload",
+			actor: person(b.uploadedByUserId),
+			target: accountTarget(b.accountId),
+			detail: [
+				b.fileName ?? `A ${b.kind}`,
+				`${lines} ${lines === 1 ? "line" : "lines"}`,
+				...(questions > 0 ? [`${questions} ${questions === 1 ? "question" : "questions"} raised`] : []),
+			].join(" — "),
+		});
+	}
+
+	for (const e of ledgerEvents) {
+		const payload = e.payload as {
+			batchId?: string;
+			fileName?: string;
+			cashFlowId?: string;
+			question?: string;
+			answer?: string;
+			amount?: string;
+		};
+		if (e.kind === "retraction") {
+			// Undoing an upload; taking an answer back is told with the answers.
+			const isUpload = payload.batchId !== undefined && payload.cashFlowId === undefined;
+			if (isUpload ? !wantsUploads : !wantsAnswers) continue;
+			items.push({
+				...plain,
+				id: `${e.id}:undo`,
+				at: e.occurredAt,
+				kind: isUpload ? "undo" : "answer",
+				actor: person(e.userId),
+				target: accountTarget(e.accountId),
+				detail: isUpload ? (payload.fileName ?? "an upload") : "took an answer back",
+			});
+		} else if (wantsAnswers) {
+			items.push({
+				...plain,
+				id: `${e.id}:answer`,
+				at: e.occurredAt,
+				kind: "answer",
+				actor: person(e.userId),
+				target: accountTarget(e.accountId),
+				detail:
+					payload.question === "opening_balance"
+						? `counted the ₹${formatInr(payload.amount ?? "0")} the account started with as money put in`
+						: `said a ledger line was ${ANSWER_WORDS[payload.answer ?? ""] ?? "something else"}`,
+			});
+		}
+	}
+
+	for (const t of transfers) {
+		const from = accountById.get(t.outAccountId)?.label;
+		const to = accountById.get(t.inAccountId)?.label;
+		items.push({
+			...plain,
+			id: `${t.id}:transfer`,
+			at: t.createdAt,
+			kind: "answer",
+			actor: person(t.decidedByUserId),
+			// Filed under the account the caller can see; the other is named only if they see it too.
+			target: accountTarget(to ? t.inAccountId : t.outAccountId),
+			detail: t.same
+				? `said money moving ${from ? `from ${from} ` : ""}${to ? `to ${to} ` : ""}was the same money`.trim()
+				: "said two matching amounts were not the same money",
+		});
 	}
 
 	if (input.filter === "all")

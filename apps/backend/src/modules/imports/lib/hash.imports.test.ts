@@ -30,7 +30,15 @@ describe("ledgerLineHash", () => {
 		expect(
 			ledgerLineHash({ ...base, narration: "Funds added using NEFT" }),
 		).not.toBe(h);
-		expect(ledgerLineHash({ ...base, credit: "10000.000001" })).not.toBe(h);
+		expect(ledgerLineHash({ ...base, credit: "10000.01" })).not.toBe(h);
+	});
+
+	it("reads the file's 6-dp amount and the database's 2-dp amount as the same line", () => {
+		const fromFile = ledgerLineHash({ ...base, debit: "0.000000", credit: "10000.000000" });
+		const fromDb = ledgerLineHash({ ...base, debit: "0.00", credit: "10000.00" });
+		const fromDbNulls = ledgerLineHash({ ...base, debit: null, credit: "10000.00" });
+		expect(fromFile).toBe(fromDb);
+		expect(fromFile).toBe(fromDbNulls);
 	});
 
 	it("distinguishes a debit from a credit of the same magnitude", () => {

@@ -47,6 +47,10 @@ export class CashFlowTable extends BaseTable {
 			}),
 			inrAmount: t.moneyAmount(),
 			fxRateUsed: t.rate8().nullable(),
+			/** False once the upload or answer that produced the row is undone. */
+			isLive: t.boolean().default(true),
+			/** `ledger_line`, or `opening_balance` (what the account held before the first line). */
+			origin: t.string(24).default("ledger_line"),
 
 			...t.timestampsAsNumbers(),
 		}),

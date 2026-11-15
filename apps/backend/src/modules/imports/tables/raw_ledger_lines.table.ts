@@ -33,6 +33,8 @@ export class RawLedgerLineTable extends BaseTable {
 			// False once this row's batch is retracted (rows are never deleted);
 			// keeps retracted lines out of dedupe. See migration 0010.
 			isLive: t.boolean().default(true),
+			/** The line's place in its file: keeps same-day lines in order. */
+			lineNo: t.integer().default(0),
 
 			...t.timestampsAsNumbers(),
 		}),

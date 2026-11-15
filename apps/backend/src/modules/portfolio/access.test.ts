@@ -46,9 +46,8 @@ const LEDGER = [
 ].join("\n");
 const ledger = (accountId: string) => ({
 	accountId,
-	kind: "ledger" as const,
 	fileName: "ledger.csv",
-	content: LEDGER,
+	contentBase64: Buffer.from(LEDGER).toString("base64"),
 });
 
 const levels = async (who: Person) =>
@@ -234,14 +233,11 @@ describe("Account access", () => {
 			});
 
 			const applied = await ramesh.imports.apply(ledger(zerodha));
-			expect(applied.summary.classified).toBe(1);
-			await ramesh.imports.retract({
-				batchId: applied.batchId,
-				reason: "wrong file",
-			});
+			expect(applied.added).toBe(1);
+			await ramesh.imports.undo({ batchId: applied.batchId, reason: "wrong file" });
 			// The owner sees the manager's work, attributed to the manager.
 			const [batch] = await anil.imports.list({ accountId: zerodha });
-			expect(batch?.status).toBe("retracted");
+			expect(batch).toMatchObject({ status: "retracted", byMe: false, fileName: "ledger.csv" });
 			const retraction = await db.events
 				.where({ accountId: zerodha, kind: "retraction" })
 				.take();
@@ -777,6 +773,9 @@ describe("Account access", () => {
 			await expect(ramesh.access.revoke({ grantId: hers.grantId })).rejects.toMatchObject({
 				code: "FORBIDDEN",
 			});
+			// The directory hands each person the id of their own access to leave with.
+			const [his] = (await ramesh.portfolio.directory()).accounts;
+			expect(his?.myGrantId).toBe(mine.grantId);
 			await ramesh.access.revoke({ grantId: mine.grantId });
 			expect(await levels(ramesh)).toEqual({});
 			expect(await levels(priya)).toEqual({ [zerodha]: "view" });

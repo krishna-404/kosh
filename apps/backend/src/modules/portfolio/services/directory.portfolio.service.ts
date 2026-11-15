@@ -6,6 +6,7 @@ import {
 	requireAccess,
 	usersById,
 } from "@backend/modules/portfolio/services/access.portfolio.service";
+import { countQuestions } from "@backend/modules/questions/questions.service";
 import type { AccessLevel } from "@connected-repo/zod-schemas/enums.zod";
 import type {
 	AccessMatrix,
@@ -54,6 +55,7 @@ export async function getDirectory(me: {
 	const myGrants = await db.accessGrants
 		.where({ revokedAt: null, userId: me.id })
 		.select(
+			"id",
 			"personId",
 			"accountId",
 			"level",
@@ -93,9 +95,22 @@ export async function getDirectory(me: {
 					)
 			: [];
 
+	// The newest upload on each account, and how many questions wait there.
+	const uploads =
+		accounts.length > 0
+			? await db.importBatches
+					.where({ accountId: { in: accounts.map((a) => a.id) }, status: "applied" })
+					.order({ appliedAt: "DESC" })
+					.select("accountId", "appliedAt", "uploadedByUserId")
+			: [];
+	const latestUpload = new Map<string, (typeof uploads)[number]>();
+	for (const u of uploads) if (!latestUpload.has(u.accountId)) latestUpload.set(u.accountId, u);
+	const waiting = await countQuestions();
+
 	const users = await usersById([
 		...myGrants.map((g) => g.grantedByUserId),
 		...others.map((g) => g.userId),
+		...[...latestUpload.values()].map((u) => u.uploadedByUserId),
 	]);
 
 	return {
@@ -120,8 +135,9 @@ export async function getDirectory(me: {
 					rankOf(effectiveLevel(holderGrant)) >=
 						rankOf(effectiveLevel(accountGrant)));
 			const giving = viaHolder ? holderGrant : accountGrant;
+			if (!giving) return [];
 			const sharer =
-				giving?.grantedByUserId && giving.grantedByUserId !== me.id
+				giving.grantedByUserId && giving.grantedByUserId !== me.id
 					? users.get(giving.grantedByUserId)
 					: undefined;
 
@@ -156,17 +172,27 @@ export async function getDirectory(me: {
 				{
 					...a,
 					myLevel,
+					myGrantId: giving.id,
 					via: viaHolder ? ("holder" as const) : ("account" as const),
 					sharedBy: sharer
 						? { userId: sharer.id, name: sharer.name, email: sharer.email ?? "" }
 						: null,
-					isNew: sharer !== undefined && giving?.seenAt === null,
+					isNew: sharer !== undefined && giving.seenAt === null,
 					access,
 					value: null,
 					xirr: null,
 					benchmarkXirr: null,
-					updated: null,
-					questionsWaiting: 0,
+					updated: (() => {
+						const upload = latestUpload.get(a.id);
+						return upload?.appliedAt
+							? {
+									at: upload.appliedAt,
+									byName: users.get(upload.uploadedByUserId)?.name ?? "Someone",
+									byMe: upload.uploadedByUserId === me.id,
+								}
+							: null;
+					})(),
+					questionsWaiting: waiting.get(a.id) ?? 0,
 				},
 			];
 		}),

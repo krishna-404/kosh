@@ -112,6 +112,12 @@ export const directoryAccountZod = z.object({
 	myLevel: accessLevelZod,
 	/** Whether that level comes from the holder (all their accounts) or this account alone. */
 	via: z.enum(["holder", "account"]),
+	/**
+	 * The caller's own grant that gives them `myLevel` — what "stop seeing
+	 * this" (access.revoke) takes. When `via` is "holder" it is their grant on
+	 * the holder, and ending it ends their access to all of that holder's accounts.
+	 */
+	myGrantId: z.string(),
 	/** Who gave the caller this access; null when they added it themselves. */
 	sharedBy: sharerZod.nullable(),
 	/** Shared with the caller and not yet looked at. */

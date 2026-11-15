@@ -41,6 +41,8 @@ export class TradeTable extends BaseTable {
 				onUpdate: "RESTRICT",
 				onDelete: "RESTRICT",
 			}),
+			/** False once the upload that produced the row is undone. */
+			isLive: t.boolean().default(true),
 
 			...t.timestampsAsNumbers(),
 		}),

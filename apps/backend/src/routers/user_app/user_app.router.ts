@@ -2,9 +2,11 @@ import { activityRouter } from "@backend/modules/activity/activity.router";
 import { cdnRouter } from "@backend/modules/cdn/cdn.user_app.router";
 import { filesRouter } from "@backend/modules/files/files.router";
 import { importsRouter } from "@backend/modules/imports/imports.router";
+import { ledgerRouter } from "@backend/modules/ledger/ledger.router";
 import { notificationsRouter } from "@backend/modules/notifications/notifications.router";
 import { accessRouter } from "@backend/modules/portfolio/access.router";
 import { portfolioRouter } from "@backend/modules/portfolio/portfolio.router";
+import { questionsRouter } from "@backend/modules/questions/questions.router";
 import { meRouter } from "@backend/modules/users/me.user_app.router";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
 import type {
@@ -44,9 +46,11 @@ export const userAppRouter = {
 	files: filesRouter,
 	health: healthCheck,
 	imports: importsRouter,
+	ledger: ledgerRouter,
 	me: meRouter,
 	notifications: notificationsRouter,
 	portfolio: portfolioRouter,
+	questions: questionsRouter,
 };
 
 export type UserAppRouter = RouterClient<typeof userAppRouter>;

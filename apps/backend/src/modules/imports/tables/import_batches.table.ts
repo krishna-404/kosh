@@ -56,6 +56,19 @@ export class ImportBatchTable extends BaseTable {
 			// Row counts, date span, dedupe summary. Null until parsing produces
 			// them (spec leaves the pre-parse shape undefined).
 			stats: t.json<Record<string, unknown>>().nullable(),
+			/** The verbatim file this batch was read from. */
+			importFileId: t
+				.ulid()
+				.foreignKey("import_files", "id", { onUpdate: "RESTRICT", onDelete: "RESTRICT" })
+				.nullable(),
+			fileName: t.string(255).nullable(),
+			/** The broker whose statement it was recognised as. */
+			broker: t.string(20).nullable(),
+			/** The dates the statement's lines cover. */
+			spanFrom: t.date().nullable(),
+			spanTo: t.date().nullable(),
+			/** File-level facts: opening and closing balance, statement date. */
+			meta: t.json<Record<string, unknown>>().nullable(),
 
 			...t.timestampsAsNumbers(),
 		}),

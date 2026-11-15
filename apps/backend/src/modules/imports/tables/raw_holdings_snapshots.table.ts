@@ -28,6 +28,7 @@ export class RawHoldingsSnapshotTable extends BaseTable {
 			avgPrice: t.price4().nullable(),
 			// The full original row, verbatim, for audit.
 			rawRow: t.json<Record<string, unknown>>(),
+			isLive: t.boolean().default(true),
 
 			...t.timestampsAsNumbers(),
 		}),

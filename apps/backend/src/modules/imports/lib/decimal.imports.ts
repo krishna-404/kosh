@@ -66,3 +66,36 @@ export function signedFlowAmount(
 		rescale(c.value, c.scale, scale) - rescale(d.value, d.scale, scale);
 	return format(rescale(net, scale, 2), 2);
 }
+
+/** Any decimal string as 2-dp money, half-up: "100000.000000" → "100000.00". */
+export function toMoney(s: string | null): string {
+	if (s === null || s === "") return "0.00";
+	const p = parse(s);
+	return format(rescale(p.value, p.scale, 2), 2);
+}
+
+/** a + b, as 2-dp money. */
+export function addMoney(a: string, b: string): string {
+	const pa = parse(toMoney(a));
+	const pb = parse(toMoney(b));
+	return format(pa.value + pb.value, 2);
+}
+
+/** −a, as 2-dp money. */
+export function negateMoney(a: string): string {
+	const p = parse(toMoney(a));
+	return format(-p.value, 2);
+}
+
+/** -1, 0 or 1 as a is below, equal to or above b. */
+export function compareMoney(a: string, b: string): -1 | 0 | 1 {
+	const d = parse(toMoney(a)).value - parse(toMoney(b)).value;
+	return d < 0n ? -1 : d > 0n ? 1 : 0;
+}
+
+export const isZeroMoney = (a: string | null): boolean => compareMoney(a ?? "0", "0") === 0;
+
+/** A quantity or price without padding zeros: "10.000000" → "10", "410.2500" → "410.25". */
+export function trimDecimal(s: string): string {
+	return s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s;
+}

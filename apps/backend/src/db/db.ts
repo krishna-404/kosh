@@ -5,6 +5,7 @@ import { VerificationTable } from "@backend/modules/auth/tables/verification.aut
 import { PgTbusTaskLogTable } from "@backend/modules/events/tables/pg_tbus_task_log.table";
 import { FileTable } from "@backend/modules/files/tables/files.table";
 import { ImportBatchTable } from "@backend/modules/imports/tables/import_batches.table";
+import { ImportFileTable } from "@backend/modules/imports/tables/import_files.table";
 import { RawHoldingsSnapshotTable } from "@backend/modules/imports/tables/raw_holdings_snapshots.table";
 import { RawLedgerLineTable } from "@backend/modules/imports/tables/raw_ledger_lines.table";
 import { RawTradeTable } from "@backend/modules/imports/tables/raw_trades.table";
@@ -14,6 +15,7 @@ import { CashFlowTable } from "@backend/modules/ledger/tables/cash_flows.table";
 import { EventTable } from "@backend/modules/ledger/tables/events.table";
 import { TradeChargeUnitTable } from "@backend/modules/ledger/tables/trade_charge_units.table";
 import { TradeTable } from "@backend/modules/ledger/tables/trades.table";
+import { TransferLinkTable } from "@backend/modules/ledger/tables/transfer_links.table";
 import { ApiProductRequestLogsTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { PushDeviceTable } from "@backend/modules/notifications/tables/push_devices.table";
 import { AccessGrantTable } from "@backend/modules/portfolio/tables/access_grants.table";
@@ -44,6 +46,7 @@ export const db = orchidORM(
 		accountGroups: AccountGroupTable,
 		accountGroupMembers: AccountGroupMemberTable,
 		importBatches: ImportBatchTable,
+		importFiles: ImportFileTable,
 		rawTrades: RawTradeTable,
 		rawLedgerLines: RawLedgerLineTable,
 		rawHoldingsSnapshots: RawHoldingsSnapshotTable,
@@ -53,6 +56,7 @@ export const db = orchidORM(
 		trades: TradeTable,
 		tradeChargeUnits: TradeChargeUnitTable,
 		cashFlows: CashFlowTable,
+		transferLinks: TransferLinkTable,
 
 		// API only
 		teamsApi: TeamApiTable,
