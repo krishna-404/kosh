@@ -435,6 +435,8 @@ export async function getReturns(scopeInput: Scope, period: Period): Promise<Ret
 			priceGains: money(gains + fees - interest - dividends),
 			dividends: money(dividends),
 			dividendsToBank: money(dividends),
+			deposits: gross.flows.filter((f) => f.amount > 0 && f.what !== "manager_fee").length,
+			withdrawals: gross.flows.filter((f) => f.amount < 0 && f.what !== "dividend").length,
 			interest: money(interest),
 			fees: money(fees),
 			closing: money(core.closing),

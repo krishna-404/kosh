@@ -82,3 +82,53 @@ export function notifyShared(input: {
 		logger.warn({ error, grantId: input.grantId }, "Could not send the share notification"),
 	);
 }
+
+/**
+ * Who, besides `exceptUserId`, can answer questions on an account: everyone
+ * whose access to it — directly or through its holder — is Can edit or Owner.
+ * (An Owner invite not yet confirmed counts as Can view, so it is left out.)
+ */
+export async function answerersOf(accountId: string, exceptUserId: string): Promise<string[]> {
+	const account = await db.brokerAccounts.unscope("default").where({ id: accountId }).select("personId").takeOptional();
+	if (!account) return [];
+	const grants = await db.accessGrants
+		.where({
+			revokedAt: null,
+			userId: { not: null },
+			needsConfirmation: false,
+			level: { in: ["edit", "owner"] },
+			OR: [{ accountId }, { personId: account.personId, accountId: null }],
+		})
+		.select("userId");
+	return [...new Set(grants.map((g) => g.userId as string))].filter((id) => id !== exceptUserId);
+}
+
+async function sendQuestions(input: { accountId: string; count: number; by: { id: string; name: string } }): Promise<void> {
+	const account = await db.brokerAccounts.unscope("default").where({ id: input.accountId }).select("label").takeOptional();
+	if (!account) return;
+	for (const userId of await answerersOf(input.accountId, input.by.id)) {
+		const user = await db.users.find(userId).select("id", "email", "name");
+		await upsertSubscriber(user.id, { email: user.email ?? undefined, firstName: user.name });
+		await triggerNotification({
+			workflowId: "questions-waiting",
+			subscriberId: user.id,
+			payload: {
+				uploaderName: input.by.name,
+				accountLabel: account.label,
+				count: input.count,
+				path: `/accounts/${input.accountId}?tab=statements`,
+			},
+		});
+	}
+}
+
+/**
+ * After an upload that left questions: tell the other people who can answer
+ * them. Fire-and-forget: never throws, never delays the response.
+ */
+export function notifyQuestions(input: { accountId: string; count: number; by: { id: string; name: string } }): void {
+	if (input.count <= 0) return;
+	void sendQuestions(input).catch((error) =>
+		logger.warn({ error, accountId: input.accountId }, "Could not send the questions notification"),
+	);
+}

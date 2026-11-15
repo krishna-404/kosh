@@ -5,6 +5,7 @@ import {
 	previewStatement,
 	undoUpload,
 } from "@backend/modules/imports/services/import.service";
+import { notifyQuestions } from "@backend/modules/portfolio/services/notify.portfolio.service";
 import { rpcPortfolioProcedure } from "@backend/procedures/protected.procedure";
 import { TEMPLATE_CASH_EXAMPLE, TEMPLATE_TRADES_EXAMPLE } from "@connected-repo/broker-parsers/template/template";
 import {
@@ -32,7 +33,12 @@ const preview = rpcPortfolioProcedure
 const apply = rpcPortfolioProcedure
 	.input(statementUploadZod)
 	.output(statementAppliedZod)
-	.handler(({ input }) => applyStatement(input));
+	.handler(async ({ input, context: { user } }) => {
+		const applied = await applyStatement(input);
+		// The uploader has just been shown the questions; the others who can answer are told.
+		notifyQuestions({ accountId: input.accountId, count: applied.questions, by: { id: user.id, name: user.name } });
+		return applied;
+	});
 
 const undo = rpcPortfolioProcedure
 	.input(z.object({ batchId: z.string(), reason: z.string().max(500).optional() }))

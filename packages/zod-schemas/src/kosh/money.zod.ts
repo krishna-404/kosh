@@ -64,6 +64,9 @@ export const movedZod = z.object({
 	 * money the account earned (`dividends`) and that left it the same day.
 	 */
 	dividendsToBank: z.string().optional(),
+	/** How many separate times money was put in, and taken out (dividends not counted). */
+	deposits: z.number().int().optional(),
+	withdrawals: z.number().int().optional(),
 	closing: z.string(),
 });
 

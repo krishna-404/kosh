@@ -5,6 +5,7 @@ import { importsRouter } from "@backend/modules/imports/imports.router";
 import { accessRouter } from "@backend/modules/portfolio/access.router";
 import { portfolioRouter } from "@backend/modules/portfolio/portfolio.router";
 import { loadAccess } from "@backend/modules/portfolio/services/access.portfolio.service";
+import { answerersOf } from "@backend/modules/portfolio/services/notify.portfolio.service";
 import { defaultContext } from "@backend/test/setup";
 import { createUserAndLogin } from "@backend/test/utils/user-auth.utils";
 import { createRouterClient } from "@orpc/server";
@@ -800,6 +801,25 @@ describe("Account access", () => {
 
 			await sunita.access.revoke({ grantId: wide.grantId });
 			expect(await levels(sunita)).toEqual({ [zerodha]: "edit" });
+		});
+	});
+
+	describe("who is told when a statement leaves questions", () => {
+		it("everyone who can answer them — on the account or through its holder — except whoever uploaded", async () => {
+			const editor = await signUp();
+			const viewer = await signUp();
+			const wide = await signUp();
+			const coOwner = await signUp();
+			await anil.access.grant({ target: { accountId: zerodha }, email: editor.email, level: "edit" });
+			await anil.access.grant({ target: { accountId: zerodha }, email: viewer.email, level: "view" });
+			await anil.access.grant({ target: { personId: holderId }, email: wide.email, level: "edit" });
+			await anil.access.grant({ target: { accountId: zerodha }, email: coOwner.email, level: "owner" });
+			// An invite nobody has signed in with reaches nobody.
+			await anil.access.grant({ target: { accountId: zerodha }, email: "not.yet@example.com", level: "edit" });
+
+			expect((await answerersOf(zerodha, editor.id)).sort()).toEqual([anil.id, wide.id, coOwner.id].sort());
+			expect((await answerersOf(groww, anil.id)).sort()).toEqual([wide.id]);
+			expect(await answerersOf("01HNOSUCHACCOUNT0000000000", anil.id)).toEqual([]);
 		});
 	});
 
