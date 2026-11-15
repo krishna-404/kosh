@@ -19,6 +19,8 @@ export class AccountGroupTable extends BaseTable {
 				onDelete: "CASCADE",
 			}),
 			name: t.string(),
+			/** An optional label (family, fund manager…). It shares nothing. */
+			kind: t.groupKindEnum().nullable(),
 
 			...t.timestampsAsNumbers(),
 		}),

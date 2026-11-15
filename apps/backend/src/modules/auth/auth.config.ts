@@ -106,6 +106,23 @@ export const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 	},
+	// Browser end-to-end tests sign in with a password, which never verifies an
+	// address — but sharing only works for verified addresses (as every real,
+	// Google, login has). Under the e2e flag alone, test sign-ups count as
+	// verified so the sharing flows can be exercised.
+	...(env.NODE_ENV === "test" && env.IS_E2E_TEST
+		? {
+				databaseHooks: {
+					user: {
+						create: {
+							before: async (user: Record<string, unknown>) => ({
+								data: { ...user, emailVerified: true },
+							}),
+						},
+					},
+				},
+			}
+		: {}),
 	plugins: [
 		bearer(),
 		phoneNumber({

@@ -2,7 +2,6 @@ import {
 	ACCESS_LEVEL_ENUM,
 	API_PRODUCT_REQUEST_STATUS_ENUM,
 	API_REQUEST_METHOD_ENUM,
-	apiProductSkuEnum,
 	BROKER_ENUM,
 	CASH_FLOW_CLASSIFICATION_ENUM,
 	CHARGE_TYPE_ENUM,
@@ -10,6 +9,9 @@ import {
 	EXCHANGE_ENUM,
 	FILE_TABLE_NAME_ENUM,
 	FILE_TYPE_ENUM,
+	GRANT_END_REASON_ENUM,
+	GROUP_KIND_ENUM,
+	HOLDER_KIND_ENUM,
 	IMPORT_BATCH_KIND_ENUM,
 	IMPORT_BATCH_STATUS_ENUM,
 	INSTRUMENT_ALIAS_KIND_ENUM,
@@ -18,6 +20,7 @@ import {
 	THEME_SETTING_ENUM,
 	TRADE_SIDE_ENUM,
 	WEBHOOK_STATUS_ENUM,
+	apiProductSkuEnum,
 } from "@connected-repo/zod-schemas/enums.zod";
 import { createBaseTable } from "orchid-orm";
 import { nodePostgresSchemaConfig } from "pqb/node-postgres";
@@ -66,6 +69,10 @@ export const BaseTable = createBaseTable({
 		eventActorEnum: () => t.enum("event_actor_enum", EVENT_ACTOR_ENUM),
 		eventKindEnum: () => t.enum("event_kind_enum", EVENT_KIND_ENUM),
 		exchangeEnum: () => t.enum("exchange_enum", EXCHANGE_ENUM),
+		grantEndReasonEnum: () =>
+			t.enum("grant_end_reason_enum", GRANT_END_REASON_ENUM),
+		groupKindEnum: () => t.enum("group_kind_enum", GROUP_KIND_ENUM),
+		holderKindEnum: () => t.enum("holder_kind_enum", HOLDER_KIND_ENUM),
 		importBatchKindEnum: () =>
 			t.enum("import_batch_kind_enum", IMPORT_BATCH_KIND_ENUM),
 		importBatchStatusEnum: () =>

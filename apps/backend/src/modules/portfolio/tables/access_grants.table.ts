@@ -13,9 +13,12 @@ import { BaseTable } from "@backend/db/base_table";
  * (`invitedEmail`, lower-cased). An invite counts only for a login whose
  * email is verified.
  *
- * Rows are never updated or deleted: revoking stamps `revokedAt`, and a level
- * change is a revoke plus a new row, so the table is its own history. Live
- * rows are `revoked_at IS NULL`.
+ * A row's meaning never changes and no row is deleted: ending one stamps
+ * `revokedAt` + `endReason`, and a level change, an accepted invite or a
+ * re-sent invite is an ended row plus a new one pointing back at it
+ * (`supersedesGrantId`) — so the table is its own history. Live rows are
+ * `revoked_at IS NULL`. Only bookkeeping stamps are ever written to a live
+ * row: `seenAt`, `endSeenAt`, and an owner's confirmation.
  *
  * No default scope — every read goes through access.portfolio.service.ts,
  * which checks the caller first.
@@ -68,6 +71,23 @@ export class AccessGrantTable extends BaseTable {
 					onDelete: "SET NULL",
 				})
 				.nullable(),
+			/** Why the row stopped being live (set together with `revokedAt`). */
+			endReason: t.grantEndReasonEnum().nullable(),
+			/** The row this one replaced: a level change, an accepted or re-sent invite. */
+			supersedesGrantId: t.ulid().nullable(),
+			/** An invite nobody has accepted stops working at this moment. */
+			expiresAt: t.timestampNumber().nullable(),
+			/** The unguessable handle carried by the invite link. */
+			inviteToken: t.string(64).nullable(),
+			/**
+			 * An Owner invite that was accepted counts as View until an existing
+			 * owner confirms it — a mistyped address must not hand over an account.
+			 */
+			needsConfirmation: t.boolean().default(false),
+			confirmedAt: t.timestampNumber().nullable(),
+			/** The grantee has been shown that they gained / lost this access. */
+			seenAt: t.timestampNumber().nullable(),
+			endSeenAt: t.timestampNumber().nullable(),
 
 			...t.timestampsAsNumbers(),
 		}),

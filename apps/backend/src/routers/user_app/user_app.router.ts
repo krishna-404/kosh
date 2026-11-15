@@ -1,3 +1,4 @@
+import { activityRouter } from "@backend/modules/activity/activity.router";
 import { cdnRouter } from "@backend/modules/cdn/cdn.user_app.router";
 import { filesRouter } from "@backend/modules/files/files.router";
 import { importsRouter } from "@backend/modules/imports/imports.router";
@@ -38,6 +39,7 @@ const healthCheck = rpcPublicProcedure
 
 export const userAppRouter = {
 	access: accessRouter,
+	activity: activityRouter,
 	cdn: cdnRouter,
 	files: filesRouter,
 	health: healthCheck,

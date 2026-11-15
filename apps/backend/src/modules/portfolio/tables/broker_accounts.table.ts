@@ -20,7 +20,13 @@ export class BrokerAccountTable extends BaseTable {
 				onDelete: "RESTRICT",
 			}),
 			broker: t.brokerEnum(),
+			/** The broker's own name when it is not one Kosh knows. */
+			brokerName: t.string(60).nullable(),
 			label: t.string(),
+			createdByUserId: t
+				.uuid()
+				.foreignKey("users", "id", { onUpdate: "RESTRICT", onDelete: "SET NULL" })
+				.nullable(),
 			baseCurrency: t.string(3).default("INR"),
 			// 'file_drop' | 'api' — 'api' reserved for a later phase.
 			// TODO(kosh): promote to enum (missing from zod-schemas/enums.zod).
