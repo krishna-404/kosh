@@ -42,7 +42,11 @@ const YearSection = ({ year, open, onToggle, handlers, compact, busy }: YearSect
 	].join(", ");
 
 	return (
-		<Box component="section" aria-labelledby={headingId} sx={(theme) => ({ borderTop: `1px solid ${theme.vars.palette.kosh.line}` })}>
+		<Box
+			component="section"
+			aria-labelledby={headingId}
+			sx={(theme) => ({ borderTop: `1px solid ${theme.vars.palette.kosh.line}` })}
+		>
 			<Typography variant="subtitle2" component="h3" sx={{ m: 0 }}>
 				<ButtonBase
 					id={headingId}

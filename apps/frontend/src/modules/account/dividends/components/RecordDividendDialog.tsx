@@ -10,7 +10,16 @@ import { DIVIDENDS as D } from "@frontend/copy/dividends.copy";
 import { errorWords } from "@frontend/modules/access/people.utils";
 import { useHoldings } from "@frontend/modules/money/money.queries";
 import { type FormEvent, useId, useMemo, useState } from "react";
-import { amountRefusal, isDay, isRefusal, parseAmount, payingScripts, rupees, scriptName, todayIso } from "../dividends.utils";
+import {
+	amountRefusal,
+	isDay,
+	isRefusal,
+	parseAmount,
+	payingScripts,
+	rupees,
+	scriptName,
+	todayIso,
+} from "../dividends.utils";
 import type { DividendAnswer, Outcome } from "../useDividendActions";
 import { AmountAndDay } from "./AmountAndDay";
 

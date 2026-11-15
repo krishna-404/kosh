@@ -21,7 +21,10 @@ interface DividendsSummaryProps {
 /** "Nothing waiting — every dividend on this account has an answer." */
 const NothingWaiting = () => (
 	<Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
-		<Box aria-hidden sx={(theme) => ({ display: "grid", color: theme.vars.palette.kosh.accentText, "& svg": { fontSize: 20 } })}>
+		<Box
+			aria-hidden
+			sx={(theme) => ({ display: "grid", color: theme.vars.palette.kosh.accentText, "& svg": { fontSize: 20 } })}
+		>
 			<IconCheck />
 		</Box>
 		<Typography variant="body2">
