@@ -21,33 +21,24 @@ export class FileTable extends BaseTable {
 				onDelete: "CASCADE",
 				onUpdate: "RESTRICT",
 			}),
-			// Auto-stamped from AsyncLocalStorage on insert.
-			familyId: t
-				.ulid()
-				.foreignKey("families", "id", {
-					onDelete: "CASCADE",
-					onUpdate: "RESTRICT",
-				})
-				.nullable()
-				.setOnCreate(() => getRequestContext()?.familyId ?? null),
 			deletedAt: t.timestampNumber().nullable(),
 
 			...t.timestampsAsNumbers(),
 		}),
 		(t) => [
-			t.index(["familyId"]),
+			t.index(["createdByUserId"]),
 			// Look-up index for the parent-scoped fetch pattern
 			// (files.getByTableId).
 			t.index(["tableName", "tableId"]),
 		],
 	);
 
-	// Default tenant scope. Bypass with `.unscope('default')` where a
-	// cross-tenant read is genuinely required.
+	// Default scope: a file is visible to the user who uploaded it. Bypass
+	// with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.familyId }) : q;
+			return ctx ? q.where({ createdByUserId: ctx.userId }) : q;
 		},
 	});
 

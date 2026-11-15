@@ -13,7 +13,6 @@ export class RawHoldingsSnapshotTable extends BaseTable {
 	columns = this.setColumns(
 		(t) => ({
 			id: t.ulidWithDefault().primaryKey(),
-			familyId: t.koshFamilyId(),
 			batchId: t.ulid().foreignKey("import_batches", "id", {
 				onUpdate: "RESTRICT",
 				onDelete: "RESTRICT",
@@ -35,12 +34,12 @@ export class RawHoldingsSnapshotTable extends BaseTable {
 		(t) => [t.index(["batchId"]), t.index(["accountId", "asOf"])],
 	);
 
-	// Default tenant scope (the family). Bypass with `.unscope('default')`
-	// where a cross-tenant read is genuinely required.
+	// Default access scope: only rows of accounts the caller can see.
+	// Bypass with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.familyId }) : q;
+			return ctx ? q.where({ accountId: { in: [...ctx.accountIds] } }) : q;
 		},
 	});
 }

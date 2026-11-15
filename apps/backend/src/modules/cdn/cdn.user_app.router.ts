@@ -1,4 +1,4 @@
-import { rpcFamilyProcedure } from "@backend/procedures/protected.procedure";
+import { rpcPortfolioProcedure } from "@backend/procedures/protected.procedure";
 import { z } from "zod";
 import { checkFileExistsInCdnService } from "./services/check_file_exists.cdn.services";
 import {
@@ -16,7 +16,7 @@ const generateUrlOutput = z.object({
 /**
  * Generates a presigned URL for uploading a file to S3.
  */
-export const generatePresignedUrl = rpcFamilyProcedure
+export const generatePresignedUrl = rpcPortfolioProcedure
 	.route({ method: "GET", tags: ["CDN"] })
 	.input(generateUrlInput)
 	.output(generateUrlOutput)
@@ -25,17 +25,16 @@ export const generatePresignedUrl = rpcFamilyProcedure
 			input,
 			context: {
 				user: { id: userId },
-				familyId,
 			},
 		}) => {
-			return await generatePresignedUrlService(input, userId, familyId);
+			return await generatePresignedUrlService(input, userId);
 		},
 	);
 
 /**
  * Generates multiple presigned URLs for batch uploads.
  */
-export const generateBatchPresignedUrls = rpcFamilyProcedure
+export const generateBatchPresignedUrls = rpcPortfolioProcedure
 	.route({ method: "POST", tags: ["CDN"] })
 	.input(z.array(generateUrlInput).max(100))
 	.output(z.array(generateUrlOutput))
@@ -44,13 +43,10 @@ export const generateBatchPresignedUrls = rpcFamilyProcedure
 			input,
 			context: {
 				user: { id: userId },
-				familyId,
 			},
 		}) => {
 			return await Promise.all(
-				input.map((file) =>
-					generatePresignedUrlService(file, userId, familyId),
-				),
+				input.map((file) => generatePresignedUrlService(file, userId)),
 			);
 		},
 	);
@@ -58,7 +54,7 @@ export const generateBatchPresignedUrls = rpcFamilyProcedure
 /**
  * Checks if a file exists in S3.
  */
-export const checkFileExistsInCdn = rpcFamilyProcedure
+export const checkFileExistsInCdn = rpcPortfolioProcedure
 	.route({ method: "GET", tags: ["CDN"] })
 	.input(cdnFileLocatorInput)
 	.output(
@@ -69,10 +65,9 @@ export const checkFileExistsInCdn = rpcFamilyProcedure
 			input,
 			context: {
 				user: { id: userId },
-				familyId,
 			},
 		}) => {
-			return await checkFileExistsInCdnService(input, userId, familyId);
+			return await checkFileExistsInCdnService(input, userId);
 		},
 	);
 

@@ -7,11 +7,10 @@ import type { cdnFileLocatorInput } from "./generate_presigned_url.cdn.services"
 
 export const checkFileExistsInCdnService = async (
 	input: z.infer<typeof cdnFileLocatorInput>,
-	_userId: string,
-	familyId: string,
+	userId: string,
 ) => {
 	const key = generateS3Key({
-		folderName: familyId,
+		folderName: userId,
 		fileName: input.fileName,
 		resourceType: input.resourceType,
 		id: input.id,

@@ -7,7 +7,7 @@ import {
 	prepareImport,
 	retractBatch,
 } from "@backend/modules/imports/services/zerodha_import.service";
-import { ensureFamilyId } from "@backend/modules/portfolio/services/ensure_family.portfolio.service";
+import { loadAccess } from "@backend/modules/portfolio/services/access.portfolio.service";
 import { defaultContext } from "@backend/test/setup";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -30,25 +30,32 @@ const LEDGER = [
 	"Closing Balance,,,,,,9985.660000",
 ].join("\n");
 
-// ── Harness: run a service inside the family's request context ──
+// ── Harness: run a service with the signed-in user's access ──
+//
+// Access is a per-request snapshot, so it is loaded afresh for every call —
+// exactly what `rpcPortfolioProcedure` does for a real request.
 
-async function runAsFamily<T>(fn: () => Promise<T>): Promise<T> {
+async function runAsOwner<T>(fn: () => Promise<T>): Promise<T> {
 	if (!defaultContext) throw new Error("defaultContext not initialized");
-	const userId = defaultContext.user.id;
-	const familyId = await ensureFamilyId(userId);
-	return requestContext.run({ familyId, userId }, fn);
+	return requestContext.run(await loadAccess(defaultContext.user), fn);
 }
 
 async function seedAccount(): Promise<string> {
-	return runAsFamily(async () => {
-		const person = await db.persons.create({ displayName: "Test Person" });
-		const account = await db.brokerAccounts.create({
-			personId: person.id,
-			broker: "zerodha",
-			label: "Zerodha EQ",
-		});
-		return account.id;
+	if (!defaultContext) throw new Error("defaultContext not initialized");
+	const me = defaultContext.user.id;
+	const person = await db.persons.create({ displayName: "Test Person" });
+	await db.accessGrants.create({
+		personId: person.id,
+		userId: me,
+		level: "owner",
+		grantedByUserId: me,
 	});
+	const account = await db.brokerAccounts.create({
+		personId: person.id,
+		broker: "zerodha",
+		label: "Zerodha EQ",
+	});
+	return account.id;
 }
 
 function tradebookInput(accountId: string, content = TRADEBOOK): ImportInput {
@@ -65,7 +72,7 @@ describe("Zerodha tradebook import", () => {
 	});
 
 	it("previews all rows as new and counts blank-ISIN for mapping", async () => {
-		const preview = await runAsFamily(() =>
+		const preview = await runAsOwner(() =>
 			prepareImport(tradebookInput(accountId)),
 		);
 		expect(preview.canApply).toBe(true);
@@ -80,8 +87,8 @@ describe("Zerodha tradebook import", () => {
 	});
 
 	it("applies raw trades, recognizes resolvable ones, creates instruments", async () => {
-		const res = await runAsFamily(() => applyImport(tradebookInput(accountId)));
-		await runAsFamily(async () => {
+		const res = await runAsOwner(() => applyImport(tradebookInput(accountId)));
+		await runAsOwner(async () => {
 			expect(await db.rawTrades.where({ accountId }).count()).toBe(3);
 			// Only the two ISIN-bearing rows become recognized trades.
 			expect(await db.trades.where({ accountId }).count()).toBe(2);
@@ -104,14 +111,14 @@ describe("Zerodha tradebook import", () => {
 	});
 
 	it("re-detects an identical re-upload as fully duplicate", async () => {
-		await runAsFamily(() => applyImport(tradebookInput(accountId)));
-		const preview = await runAsFamily(() =>
+		await runAsOwner(() => applyImport(tradebookInput(accountId)));
+		const preview = await runAsOwner(() =>
 			prepareImport(tradebookInput(accountId)),
 		);
 		expect(preview.summary).toMatchObject({ new: 0, duplicate: 3 });
-		const res = await runAsFamily(() => applyImport(tradebookInput(accountId)));
+		const res = await runAsOwner(() => applyImport(tradebookInput(accountId)));
 		expect(res.summary.recognized).toBe(0);
-		await runAsFamily(async () => {
+		await runAsOwner(async () => {
 			expect(
 				await db.rawTrades.where({ accountId, isLive: true }).count(),
 			).toBe(3);
@@ -126,9 +133,9 @@ describe("Zerodha ledger import", () => {
 	});
 
 	it("classifies high-confidence lines into cash flows, leaves the rest raw", async () => {
-		const res = await runAsFamily(() => applyImport(ledgerInput(accountId)));
+		const res = await runAsOwner(() => applyImport(ledgerInput(accountId)));
 		expect(res.summary.unclassified).toBe(1);
-		await runAsFamily(async () => {
+		await runAsOwner(async () => {
 			expect(await db.rawLedgerLines.where({ accountId }).count()).toBe(3);
 			expect(await db.cashFlows.where({ accountId }).count()).toBe(2);
 			const deposit = await db.cashFlows
@@ -144,7 +151,7 @@ describe("Zerodha ledger import", () => {
 
 	it("rejects the whole file when the balance chain does not reproduce", async () => {
 		const tampered = LEDGER.replace("9984.660000", "9984.660001");
-		const preview = await runAsFamily(() =>
+		const preview = await runAsOwner(() =>
 			prepareImport(ledgerInput(accountId, tampered)),
 		);
 		expect(preview.canApply).toBe(false);
@@ -152,7 +159,7 @@ describe("Zerodha ledger import", () => {
 			true,
 		);
 		await expect(
-			runAsFamily(() => applyImport(ledgerInput(accountId, tampered))),
+			runAsOwner(() => applyImport(ledgerInput(accountId, tampered))),
 		).rejects.toThrow();
 	});
 });
@@ -164,14 +171,14 @@ describe("Batch retraction", () => {
 	});
 
 	it("supersedes events, marks rows non-live, and frees the file for re-import", async () => {
-		const applied = await runAsFamily(() =>
+		const applied = await runAsOwner(() =>
 			applyImport(tradebookInput(accountId)),
 		);
-		await runAsFamily(() =>
+		await runAsOwner(() =>
 			retractBatch({ batchId: applied.batchId, reason: "wrong account" }),
 		);
 
-		await runAsFamily(async () => {
+		await runAsOwner(async () => {
 			const batch = await db.importBatches.find(applied.batchId);
 			expect(batch.status).toBe("retracted");
 			expect(batch.retractionEventId).not.toBeNull();
@@ -188,26 +195,26 @@ describe("Batch retraction", () => {
 		});
 
 		// The same file is importable again after retraction.
-		const preview = await runAsFamily(() =>
+		const preview = await runAsOwner(() =>
 			prepareImport(tradebookInput(accountId)),
 		);
 		expect(preview.summary).toMatchObject({ new: 3, duplicate: 0 });
-		const reapplied = await runAsFamily(() =>
+		const reapplied = await runAsOwner(() =>
 			applyImport(tradebookInput(accountId)),
 		);
 		expect(reapplied.summary.recognized).toBe(2);
-		await runAsFamily(async () => {
+		await runAsOwner(async () => {
 			const batches = await listBatches(accountId);
 			expect(batches).toHaveLength(2);
 		});
 	});
 
 	it("requires a non-empty reason", async () => {
-		const applied = await runAsFamily(() =>
+		const applied = await runAsOwner(() =>
 			applyImport(tradebookInput(accountId)),
 		);
 		await expect(
-			runAsFamily(() =>
+			runAsOwner(() =>
 				retractBatch({ batchId: applied.batchId, reason: "  " }),
 			),
 		).rejects.toThrow();

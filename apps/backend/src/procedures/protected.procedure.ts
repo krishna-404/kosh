@@ -1,8 +1,11 @@
-import { requestContext } from "@backend/lib/request-context";
+import {
+	type RequestContext,
+	requestContext,
+} from "@backend/lib/request-context";
 import { createRateLimitMiddleware } from "@backend/middlewares/rate_limit.middleware";
 import { rpcAuthMiddleware } from "@backend/modules/auth/auth.middleware";
 import type { ActiveSessionSelectAll } from "@backend/modules/auth/tables/session.auth.table";
-import { ensureFamilyId } from "@backend/modules/portfolio/services/ensure_family.portfolio.service";
+import { loadAccess } from "@backend/modules/portfolio/services/access.portfolio.service";
 import {
 	type RpcContextWithHeaders,
 	rpcPublicProcedure,
@@ -20,22 +23,23 @@ export interface RpcAuthenticatedContext extends RpcContextWithHeaders {
 /**
  * @public
  */
-export interface RpcFamilyContext extends RpcAuthenticatedContext {
-	familyId: string;
+export interface RpcPortfolioContext extends RpcAuthenticatedContext {
+	access: RequestContext;
 }
 
 /** Requires a valid session. */
 export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware);
 
 /**
- * Requires a valid session and runs the rest of the handler inside an
- * AsyncLocalStorage scope carrying the caller's family — the tenant every
- * Kosh row belongs to. The `koshFamilyId` column reads it to auto-stamp
- * `familyId` on every insert, and each family-scoped table's default scope
- * reads it to filter every query, so handlers never pass or check `familyId`.
+ * Requires a valid session and runs the handler inside an AsyncLocalStorage
+ * scope holding the caller's access: which broker accounts they can reach and
+ * at what level (see `access_grants`). Every account-scoped table's default
+ * scope filters on it, so reads are limited before the handler runs; handlers
+ * that change something also call `requireAccountLevel` / `requirePersonLevel`.
  *
- * The family comes from the user's own row (`users.family_id`); the client
- * sends nothing to select it. Use this for every portfolio endpoint.
+ * Access is read fresh from the database on every request — never from the
+ * session — so revoking someone takes effect on their next call. The client
+ * sends nothing to select a scope. Use this for every portfolio endpoint.
  *
  * Rate limit: 300 requests/min per authenticated user (5 req/sec sustained,
  * with a full-bucket burst up to 300). The purpose is to cap runaway clients
@@ -47,16 +51,15 @@ export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware);
  * The rate-limit gate runs BEFORE the handler's own DB reads and BEFORE input
  * validation, so a throttled request never touches the domain tables.
  */
-export const rpcFamilyProcedure = rpcProtectedProcedure
+export const rpcPortfolioProcedure = rpcProtectedProcedure
 	.use(async ({ context, next }) => {
-		const familyId = await ensureFamilyId(context.user.id);
-
-		return requestContext.run({ familyId, userId: context.user.id }, () =>
-			next({ context: { ...context, familyId } }),
+		const access = await loadAccess(context.user);
+		return requestContext.run(access, () =>
+			next({ context: { ...context, access } }),
 		);
 	})
 	.use(
-		createRateLimitMiddleware<RpcFamilyContext>({
+		createRateLimitMiddleware<RpcPortfolioContext>({
 			bucketFn: (ctx) => ({
 				key: `app:user:${ctx.user.id}`,
 				limit: 300,

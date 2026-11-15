@@ -256,13 +256,17 @@ Zero-downtime deployments require strict adherence to the following rules. Break
 * **No Breaking Payload Changes:** Do not remove fields from JSON responses or change data types (e.g., String to Int) without a version bump (e.g., `/v1/` to `/v2/`).
 * **Graceful Failure:** Agents/Frontends must ignore unknown keys in API responses rather than crashing.
 
-### Tenancy: families
+### Access: per broker account
 
-Each login belongs to exactly one household (`families`, linked from
-`users.family_id` and created at sign-up). Every portfolio table carries
-`family_id`; `rpcFamilyProcedure` puts the caller's family into request context,
-tables stamp it on insert and filter on it by default. There are no teams,
-workspaces, roles or `x-team-id` header.
+The broker account is the unit of access. `access_grants` gives a user one of
+three levels on an account — `view`, `edit` or `owner` — or on a holder, which
+covers all of that holder's accounts including ones added later. Family
+members, fund managers and friends are all just people with grants; a "family"
+is a saved group of accounts, not a permission.
+
+`rpcPortfolioProcedure` loads the caller's access on every request. Each
+account-scoped table filters on it by default, and anything that changes data
+states the level it needs. There are no teams, workspaces or tenant columns.
 
 `teams_api` is unrelated: it models external API-key consumers of the OpenAPI
 surface.

@@ -13,8 +13,10 @@ Better Auth, Sentry.
 - **Session**: `authLoader` (`src/utils/auth.loader.ts`) fetches the Better Auth
   session for every authenticated route and redirects to `/auth` when there is
   none. Pages read it with `useSessionInfo()`.
-- **Tenancy is invisible here**: the backend resolves the caller's family from
-  the session. The client sends no team/family id and has no workspace switcher.
+- **Access is decided on the server**: every list the client gets is already
+  limited to accounts the signed-in person can see, each with their level
+  (`view` / `edit` / `owner`). The client sends no team or tenant id; it only
+  hides actions the level does not allow.
 - **PWA shell**: the service worker (see `src/sw/AGENTS.md`) exists for install,
   the update prompt and push notifications only.
 

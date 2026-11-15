@@ -61,8 +61,7 @@ export const generateUrlInput = cdnFileLocatorInput.extend({
 
 export const generatePresignedUrlService = async (
 	input: z.infer<typeof generateUrlInput>,
-	_userId: string,
-	familyId: string,
+	userId: string,
 ) => {
 	if (!isAllowedContentType(input.contentType)) {
 		throw new ORPCError("BAD_REQUEST", {
@@ -71,9 +70,9 @@ export const generatePresignedUrlService = async (
 	}
 
 	// Folder prefix is derived server-side from the authenticated caller's
-	// family id so the client cannot write under another tenant's namespace.
+	// id so the client cannot write under another user's namespace.
 	const key = generateS3Key({
-		folderName: familyId,
+		folderName: userId,
 		fileName: input.fileName,
 		resourceType: input.resourceType,
 		id: input.id,

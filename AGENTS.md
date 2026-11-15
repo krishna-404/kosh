@@ -11,16 +11,16 @@
 
 **Architecture Patterns**:
 - **Bimodal Docs**: `README.md` (Human) vs `AGENTS.md` (Agent)
-- **Tenancy**: every portfolio row carries `family_id` (→ `families`). `rpcFamilyProcedure` puts the caller's family in AsyncLocalStorage; tables stamp and filter on it. No teams, no workspace switching, no `x-team-id` header.
+- **Access**: the broker account is the unit. `access_grants` gives a user `view` / `edit` / `owner` on one account, or on a holder (all that holder's accounts, including future ones). `rpcPortfolioProcedure` loads the caller's access into AsyncLocalStorage; every account-scoped table filters on it, and writes call `requireAccountLevel`. No teams, no tenant column, no `x-team-id` header.
 - **Online-only**: no Dexie/IndexedDB, no web workers, no sync protocol. Reads and writes are oRPC calls.
 - **Strict TS**: NO `any`, NO `as unknown`, NO `ts-ignore`.
 
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Foundation simplification — online-only, families instead of teams.
+- **Objective**: Foundation simplification — online-only, access per broker account instead of teams.
 - **Status**: Completed.
-- **Context**: Offline-first layer (workers, Dexie, OPFS, sync protocol) and the teams module removed; `families` + `users.family_id` is the tenant. Import pipeline has DB-level tests again. Next: the first usable slice — accounts + import UI and fund-flow XIRR (docs/kosh/05-roadmap.md).
+- **Context**: Offline-first layer (workers, Dexie, OPFS, sync protocol) and the teams module removed; `access_grants` gives a user view/edit/owner on an account or a holder, and there is no tenant column. Import pipeline has DB-level tests again. Next: the first usable slice — accounts + import UI and fund-flow XIRR (docs/kosh/05-roadmap.md).
 
 ## Layer 3: Decision Records
 
@@ -37,12 +37,12 @@
 | [ADR-009] | Virtual Media Provider | Superseded by ADR-015 | Serve OPFS media via Service Worker fetch interception to avoid avoid `URL.createObjectURL` overhead. |
 | [ADR-010] | Token Bucket Rate Limiting | Accepted | Use an optimistic locking Token Bucket in Postgres to prevent table bloat and eliminate background cleanup cron jobs. |
 | [ADR-011] | Pull Bundles Renaming | Superseded by ADR-015 | Rename sync table procedures from `pullDelta` to `pullBundles`. |
-| [ADR-012] | Backend Security Hardening | Accepted | Implementing strict SSRF guards, dummy hashes for timing attacks, and strict tenant scoping (now `familyId`, see ADR-016). |
+| [ADR-012] | Backend Security Hardening | Accepted | Implementing strict SSRF guards, dummy hashes for timing attacks, and strict access scoping (now per account, see ADR-016). |
 | [ADR-013] | Novu Push Notifications | Accepted | Implemented FCM token synchronization and notification dispatch using Novu with optimistic DB-first tracking. |
 | [ADR-014] | Silent Sync Trigger | Superseded by ADR-015 | Implemented FCM silent pushes to wake up the app for background sync, bypassing OS notifications. |
 | [ADR-015] | Online-Only Client | Accepted | Kosh has no offline data layer: no Dexie/IndexedDB, workers, OPFS, sync protocol or silent-sync push. Portfolio figures are server-computed over the full ledger, so a local copy could only be stale. The service worker stays for install, update prompt and push. |
-| [ADR-016] | Families, Not Teams | Accepted | A login belongs to exactly one household. `families` + `users.family_id` replaces teams_app/team_members; `rpcFamilyProcedure` scopes every request. No multi-team membership, roles, switching or `x-team-id`. `teams_api` (external API keys) is unrelated and unchanged. |
-| [ADR-017] | Tenant Column Is A Runtime Default | Accepted | `koshFamilyId` fills `family_id` via a runtime default, never `setOnCreate`: orchid-orm 1.73 swaps the values of a setOnCreate column and a runtime-default column (`id`) on insert. See `db/base_table.ts`. |
+| [ADR-016] | Access Per Account | Accepted | No teams and no tenant column. The broker account is the unit of access: `access_grants` gives a user view/edit/owner on an account or on a holder (= all that holder's accounts, present and future). Family members, fund managers and friends are all just people with grants; "family" is a saved group. Only owners share; fees are owner-only. Grants are never updated or deleted (revoke = `revoked_at`), so the table is its own history. `teams_api` (external API keys) is unrelated and unchanged. |
+| [ADR-017] | No setOnCreate Beside A Runtime Default | Accepted | orchid-orm 1.73 swaps the values of a `setOnCreate` column and a runtime-default column (our ULID `id`) on insert — the old tenant column was written into `id` this way and every portfolio insert failed. No table combines the two now; keep it that way (see `ulidWithDefault` in `db/base_table.ts`). |
 
 ## Quick Reference
 - **Dev**: `yarn dev`

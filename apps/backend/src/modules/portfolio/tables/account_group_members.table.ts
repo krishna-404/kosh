@@ -12,7 +12,6 @@ export class AccountGroupMemberTable extends BaseTable {
 
 	columns = this.setColumns(
 		(t) => ({
-			familyId: t.koshFamilyId(),
 			// Membership rows are selection metadata, not ledger data — they may
 			// die with their group/account (CASCADE).
 			groupId: t.ulid().foreignKey("account_groups", "id", {
@@ -29,12 +28,12 @@ export class AccountGroupMemberTable extends BaseTable {
 		(t) => [t.primaryKey(["groupId", "accountId"]), t.index(["accountId"])],
 	);
 
-	// Default tenant scope (the family). Bypass with `.unscope('default')`
-	// where a cross-tenant read is genuinely required.
+	// Default access scope: only rows of accounts the caller can see.
+	// Bypass with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.familyId }) : q;
+			return ctx ? q.where({ accountId: { in: [...ctx.accountIds] } }) : q;
 		},
 	});
 }

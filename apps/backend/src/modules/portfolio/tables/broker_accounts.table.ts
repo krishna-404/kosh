@@ -13,7 +13,6 @@ export class BrokerAccountTable extends BaseTable {
 	columns = this.setColumns(
 		(t) => ({
 			id: t.ulidWithDefault().primaryKey(),
-			familyId: t.koshFamilyId(),
 			// RESTRICT: a person with accounts cannot be removed — the ledger
 			// hanging off the account must not lose its subject.
 			personId: t.ulid().foreignKey("persons", "id", {
@@ -31,15 +30,15 @@ export class BrokerAccountTable extends BaseTable {
 
 			...t.timestampsAsNumbers(),
 		}),
-		(t) => [t.index(["familyId", "personId"])],
+		(t) => [t.index(["personId"])],
 	);
 
-	// Default tenant scope (the family). Bypass with `.unscope('default')`
-	// where a cross-tenant read is genuinely required.
+	// Default access scope: only accounts the caller has a level on.
+	// Bypass with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.familyId }) : q;
+			return ctx ? q.where({ id: { in: [...ctx.accountIds] } }) : q;
 		},
 	});
 }

@@ -20,7 +20,7 @@ apps/
     teams/                 # REMOVED (app teams). Only tables/teams_api.table.ts remains — external API keys, unrelated
     files/ cdn/            # KEEP (server side only) — the offline upload pipeline that fed them is gone
     notifications/         # KEEP (Novu) — action-needed prompts, dividend confirmations
-    portfolio/             # NEW — families (the tenant), persons, broker accounts, account groups
+    portfolio/             # NEW — holders, broker accounts, access grants (who can do what), saved groups
     imports/               # NEW — import batches, parsers, validation gate, quarantine
     instruments/           # NEW — instrument master, aliases, identity links
     corporate-actions/     # NEW — event log, application state, prompt queue
@@ -97,13 +97,21 @@ A file is applied **atomically or not at all**. Failures land in `import_quarant
 - **Metric queries are served from Layer 3** (valuation snapshots + cached metric results keyed by `(account_set_hash, date_range, metric, params_hash, ledger_version)`); a cold cache computes on demand from snapshots — target < 1s for a 10-year, 10-account family.
 - **Novu notifications** for: new corporate-action prompts, dividend confirmations due, import failures, stale data.
 
-## 5. Security & tenancy
+## 5. Security & access
 
-- **The tenant is the family** (decision 2026-11-15, replacing "family = team"). `families` is a plain table; each login has exactly one via `users.family_id`, created at sign-up. Every portfolio row carries `family_id`, stamped from the request context on insert and applied as a default query scope, so a handler cannot read or write another family's data by accident. There is no workspace switching, membership table, role or `x-team-id` header.
-- More than one login per household (spouse, fund manager) is a later milestone: it is a second `users` row pointing at the same family, plus a role. A person who needs access to *several* households is the one case this model does not cover; it would need a membership table then.
-- Statements are sensitive financial documents: scoped to the family and encrypted at rest (storage-level).
+**The broker account is the unit of access** (decision 2026-11-15, replacing "family = team"). There are no teams, workspaces or tenant columns.
+
+- A person (login) is given a **level** on an account: **View** (see holdings, flows, returns and trails), **Edit** (also upload statements, undo an upload, answer prompts) or **Owner** (also share, set fund-manager fees, rename or close).
+- A grant can instead be made on a **holder** (`persons`): it covers every account that holder has, including ones added later. The effective level on an account is the higher of its own grant and its holder's. Whoever adds a holder is its owner; a holder always has at least one owner who can sign in.
+- This is what lets one model serve everyone: each family member has their own login and owns what they add; a fund manager gets Edit on some accounts and View on others, across as many households as they have clients; a friend gets View on a single account.
+- **Only owners share**, and **fees are owner-only** — a manager with Edit can neither pass an account on nor set their own fee.
+- Invites go to an email address and take effect only for a login whose email is verified. Access is read from the database on every request, so removing someone takes effect on their next call.
+- An account a caller cannot see is reported as *not found*, never *forbidden*: its existence is not disclosed.
+- All access lives in one table, `access_grants`. Rows are never updated or deleted — revoking stamps `revoked_at`, a level change is a revoke plus a new row — so it is its own audit trail. Ledger changes already record their actor on `events` / `import_batches`.
+- Enforcement is two layers: every account-scoped table filters itself to the caller's accounts (so a handler that forgets a check still cannot read another account's rows), and every handler that changes data states the level it needs (`requireAccountLevel`).
+- A "family" is a **saved group**: a named set of accounts a user builds from the ones they can see ("Parents", "Kids", a manager's "Mehta household"). It carries no permission.
+- Statements are sensitive financial documents: encrypted at rest (storage-level).
 - No broker credentials exist in v1 (file drop only). When the API phase arrives, tokens get envelope encryption + a dedicated secrets table — out of scope now.
-- Several families can share one deployment safely (each sees only its own rows); there is simply no UI for moving between them.
 
 ## 6. Frontend architecture
 
@@ -115,7 +123,7 @@ A file is applied **atomically or not at all**. Failures land in `import_quarant
 
 ## 7. Open architecture questions (tracked on the map)
 
-- Second logins for a household (family members, fund-manager role) → roadmap M8; the tenant model is settled (§5).
+- The sharing screens (invite, change level, "who can see what") → roadmap M8; the access model itself is settled and enforced (§5).
 - Foreign/crypto platforms, FX-rate source, benchmark set for foreign sleeves → [Grilling: Foreign assets, crypto & currency model](https://github.com/krishna-404/family-portfolio-tracker/issues/15).
 - Remaining asset classes (MFs beyond CAS, bonds, SGBs, manual assets) → [Grilling: Asset-class scope](https://github.com/krishna-404/family-portfolio-tracker/issues/4).
 - Sharpe parameters and fee-schedule shapes → [Grilling: Metrics & date-range semantics](https://github.com/krishna-404/family-portfolio-tracker/issues/5).

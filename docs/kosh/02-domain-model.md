@@ -4,35 +4,40 @@ Status: **DRAFT** — implementable now for M1–M3 of the [roadmap](./05-roadma
 
 Model lineage: transaction/unit design adapted from Portfolio Performance (see [prior-art](../research/prior-art.md) §3); everything else per the three-layer architecture ([01-architecture.md](./01-architecture.md) §3).
 
-## 1. People, accounts, groups
+## 1. People, accounts, access, groups
 
 ```
-families                    -- the household; the tenant every row below belongs to
-  id, name, created_at
-  -- one is created per user at sign-up; users.family_id → families (a login has exactly one)
+persons                     -- holders: whose money an account is (not logins — a child or an HUF never signs in)
+  id, display_name, created_at
 
-persons                     -- family members as portfolio subjects (not logins)
-  id, family_id →families, display_name, created_at
-
-broker_accounts
-  id, family_id, person_id →persons, broker enum('zerodha','dhan','groww','manual', ...),
+broker_accounts             -- THE UNIT OF ACCESS; every ledger row below hangs off one
+  id, person_id →persons, broker enum('zerodha','dhan','groww','manual', ...),
   label, base_currency char(3) default 'INR',
   connection_method enum('file_drop','api')  -- 'api' reserved for later phase
   opened_at date?, closed_at date?, created_at
 
-account_groups              -- saved, ad-hoc, overlapping selections
-  id, family_id, name, created_at
+access_grants               -- who may do what; the only place access lives
+  id,
+  account_id →broker_accounts? | person_id →persons?,   -- exactly one: an account, or a holder (= all their accounts, present and future)
+  user_id →users? | invited_email text?,                -- exactly one: a login, or an invite waiting for a verified sign-in
+  level enum('view','edit','owner'),
+  granted_by_user_id →users, created_at,
+  revoked_at?, revoked_by_user_id?                      -- never updated or deleted; live = revoked_at IS NULL
+  UNIQUE(target, grantee) WHERE revoked_at IS NULL
+
+account_groups              -- a user's own saved, ad-hoc, overlapping selections ("Parents", "Mehta household")
+  id, user_id →users, name, created_at
 account_group_members
   group_id →account_groups, account_id →broker_accounts, PK(group_id, account_id)
 ```
 
-Invariants: `family_id` is never supplied by a caller — it is stamped from the signed-in user's family on insert and applied as a default filter on every read; an account belongs to exactly one person; groups are arbitrary subsets (an account may be in many groups); "whole family" is a virtual group (all accounts), not a row.
+Invariants: there is no tenant column — access is decided per account. A user's level on an account is the higher of their grant on the account and their grant on its holder; whoever adds a holder gets `owner` on it, and a holder always keeps at least one owner with a login. An account belongs to exactly one holder; a holder may have accounts at several brokers. Groups are personal views over the accounts their user can see (an account they lose access to drops out); "everything" is a virtual group (all accounts the user can see), not a row. See [01-architecture.md](./01-architecture.md) §5.
 
 ## 2. Layer 1 — raw imports
 
 ```
 import_batches
-  id, family_id, account_id →broker_accounts, kind enum('tradebook','ledger','holdings',
+  id, account_id →broker_accounts, kind enum('tradebook','ledger','holdings',
     'contract_note','cas','manual_entry'),
   file_id →files?,                  -- verbatim upload (null for manual entry)
   source_tool text?,                -- e.g. 'casparser 1.3.0' for CAS JSON
@@ -92,7 +97,7 @@ instrument_links                    -- identity continuity across corporate even
 
 ```
 events                              -- the append-only spine; every L2 fact is an event
-  id, family_id, kind enum(
+  id, account_id →broker_accounts?, kind enum(
     'trade_recognized',             -- raw trade admitted into the ledger
     'cash_flow_classified',         -- ledger line → external deposit/withdrawal/internal/charge
     'corporate_action_applied',     -- CA applied to an account
@@ -164,7 +169,7 @@ dividend_expectations                -- generated: holdings on record_date × am
   -- return calc uses receipt_date if confirmed else pay_date (owner decision)
 
 fee_schedules                        -- fund-manager fees ⚠ exact shapes pending #5
-  id, family_id, scope ('account'|'group'), account_id?/group_id?,
+  id, scope ('account'|'group'), account_id?/group_id?,          -- owner-only to set
   model enum('pct_aum_pa','fixed','profit_share','invoiced'), params jsonb,
   valid_from, valid_to?, set_event_id →events
 ```
@@ -200,8 +205,8 @@ adjustment_factors                    -- derived from corporate_action_events (L
 ## 7. Layer 3 — derived (all rebuildable; every table carries `ledger_version`)
 
 ```
-ledger_versions                       -- monotonically increasing; bumped by any L1/L2 change per family
-  family_id, version bigint, cause_event_id, created_at
+ledger_versions                       -- monotonically increasing; bumped by any L1/L2 change per account
+  account_id, version bigint, cause_event_id, created_at
 
 positions_daily                       -- per account × instrument × date: qty (raw + adjusted), cost basis (FIFO lots in lots table)
 lots                                  -- FIFO lots: open qty, cost, source trade; consumed-by links
@@ -214,7 +219,7 @@ prompts                               -- materialized queue: unexplained holding
                                       --  low-confidence CA parses, dividend confirmations due
 ```
 
-Replay contract: `rebuild(family_id, from_date)` deterministically regenerates every Layer-3 row for that family from Layers 1+2 at the current `ledger_version`. Property test: retract-and-reapply any event ⇒ byte-identical Layer 3.
+Replay contract: `rebuild(account_id, from_date)` deterministically regenerates every Layer-3 row for that account from Layers 1+2 at the current `ledger_version`. Property test: retract-and-reapply any event ⇒ byte-identical Layer 3.
 
 ## 8. Walk-through scenarios (acceptance for this model)
 

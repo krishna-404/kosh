@@ -128,6 +128,15 @@ export const CASH_FLOW_CLASSIFICATION_ENUM = [
 export const cashFlowClassificationZod = z.enum(CASH_FLOW_CLASSIFICATION_ENUM);
 export type CashFlowClassification = z.infer<typeof cashFlowClassificationZod>;
 
+// What a user may do with a broker account, lowest to highest. ORDER MATTERS:
+// a level includes everything below it (see access.portfolio.service.ts).
+//   view  — see holdings, flows, returns and how each number was computed
+//   edit  — also upload statements, undo an upload, answer prompts
+//   owner — also share, set fees, rename/close
+export const ACCESS_LEVEL_ENUM = ["view", "edit", "owner"] as const;
+export const accessLevelZod = z.enum(ACCESS_LEVEL_ENUM);
+export type AccessLevel = z.infer<typeof accessLevelZod>;
+
 export const IMPORT_BATCH_KIND_ENUM = [
 	"tradebook",
 	"ledger",

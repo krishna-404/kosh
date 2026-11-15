@@ -1,5 +1,8 @@
 import { db } from "@backend/db/db";
-import { getRequestContext } from "@backend/lib/request-context";
+import {
+	requireAccess,
+	requireAccountLevel,
+} from "@backend/modules/portfolio/services/access.portfolio.service";
 import { parseZerodhaLedger } from "@connected-repo/broker-parsers/zerodha/ledger";
 import { classifyZerodhaLedgerLine } from "@connected-repo/broker-parsers/zerodha/ledger-classifier";
 import { validateZerodhaLedgerBalances } from "@connected-repo/broker-parsers/zerodha/ledger-validator";
@@ -221,27 +224,20 @@ async function analyzeLedger(
 
 // ─── Public API ─────────────────────────────────────────────────────────
 
-/** Dry run: parse + gate + dedupe, return a preview. Mutates nothing. */
+/**
+ * Dry run: parse + gate + dedupe, return a preview. Mutates nothing — but it
+ * is the first step of an upload, so it needs the same level as applying.
+ */
 export async function prepareImport(
 	input: ImportInput,
 ): Promise<ImportPreview> {
-	await db.brokerAccounts.find(input.accountId); // tenant-scoped authorization
+	requireAccountLevel(input.accountId, "edit");
 	const sha = sha256Hex(input.content);
 	const analysis =
 		input.kind === "tradebook"
 			? await analyzeTradebook(input, sha)
 			: await analyzeLedger(input, sha);
 	return analysis.preview;
-}
-
-function requireCtx(): { familyId: string; userId: string } {
-	const ctx = getRequestContext();
-	if (!ctx)
-		throw new ORPCError("UNAUTHORIZED", {
-			status: 401,
-			message: "No active session",
-		});
-	return { familyId: ctx.familyId, userId: ctx.userId };
 }
 
 function toEpoch(date: string): number {
@@ -290,8 +286,8 @@ async function resolveInstrument(
 
 /** Apply a file atomically: raw rows + Layer-2 recognition in one transaction. */
 export async function applyImport(input: ImportInput): Promise<ApplyResult> {
-	await db.brokerAccounts.find(input.accountId);
-	const { userId } = requireCtx();
+	requireAccountLevel(input.accountId, "edit");
+	const { userId } = requireAccess();
 	const sha = sha256Hex(input.content);
 
 	if (input.kind === "tradebook") {
@@ -340,6 +336,7 @@ export async function applyImport(input: ImportInput): Promise<ApplyResult> {
 					t.exchange,
 				);
 				const event = await db.events.create({
+					accountId: input.accountId,
 					kind: "trade_recognized",
 					payload: { batchId: batch.id, rawTradeId: raw.id },
 					actor: "system",
@@ -399,6 +396,7 @@ export async function applyImport(input: ImportInput): Promise<ApplyResult> {
 			});
 			if (!e.classification) continue; // low-confidence → raw only (prompt later)
 			const event = await db.events.create({
+				accountId: input.accountId,
 				kind: "cash_flow_classified",
 				payload: { batchId: batch.id, rawLedgerLineId: raw.id, rule: e.rule },
 				actor: "system",
@@ -431,14 +429,16 @@ export async function retractBatch(input: {
 	batchId: string;
 	reason: string;
 }): Promise<void> {
-	const { userId } = requireCtx();
+	const { userId } = requireAccess();
 	if (!input.reason.trim()) {
 		throw new ORPCError("BAD_REQUEST", {
 			status: 400,
 			message: "Retraction reason is required",
 		});
 	}
-	const batch = await db.importBatches.find(input.batchId); // tenant-scoped
+	// Scoped: a batch of an account the caller cannot see is "not found".
+	const batch = await db.importBatches.find(input.batchId);
+	requireAccountLevel(batch.accountId, "edit");
 	if (batch.status === "retracted") {
 		throw new ORPCError("BAD_REQUEST", {
 			status: 400,
@@ -447,6 +447,7 @@ export async function retractBatch(input: {
 	}
 	await db.$transaction(async () => {
 		const retraction = await db.events.create({
+			accountId: batch.accountId,
 			kind: "retraction",
 			payload: { batchId: batch.id },
 			actor: "user",
@@ -471,6 +472,7 @@ export async function retractBatch(input: {
 }
 
 export async function listBatches(accountId: string) {
+	requireAccountLevel(accountId, "view");
 	return db.importBatches
 		.where({ accountId })
 		.order({ createdAt: "DESC" })

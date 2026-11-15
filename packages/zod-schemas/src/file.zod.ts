@@ -26,13 +26,6 @@ export const fileOptionalZod = z.object({
     isMainFileLost: z.boolean().default(false),
 });
 
-// `familyId` is a server-owned tenant scope — it is set from the request
-// context, never accepted from the client, to prevent tenant-forgery via a
-// spread-in field.
-export const fileServerOwnedZod = z.object({
-    familyId: z.ulid().nullable(),
-});
-
 export const fileCreateInputZod = fileMandatoryZod
     .omit({ createdByUserId: true })
     .extend(fileOptionalZod.partial().shape);
@@ -40,6 +33,5 @@ export type FileCreateInput = z.infer<typeof fileCreateInputZod>;
 
 export const fileSelectAllZod = fileMandatoryZod
     .extend(fileOptionalZod.shape)
-    .extend(fileServerOwnedZod.shape)
     .extend(zTimestampsAsNumbers);
 export type FileSelectAll = z.infer<typeof fileSelectAllZod>;

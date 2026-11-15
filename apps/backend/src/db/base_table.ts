@@ -1,5 +1,5 @@
-import { getRequestContext } from "@backend/lib/request-context";
 import {
+	ACCESS_LEVEL_ENUM,
 	API_PRODUCT_REQUEST_STATUS_ENUM,
 	API_REQUEST_METHOD_ENUM,
 	apiProductSkuEnum,
@@ -57,6 +57,7 @@ export const BaseTable = createBaseTable({
 		price4: () => t.decimal(20, 4),
 		rate8: () => t.decimal(20, 8),
 
+		accessLevelEnum: () => t.enum("access_level_enum", ACCESS_LEVEL_ENUM),
 		apiProductSkuEnum: () => t.enum("api_product_enum", apiProductSkuEnum),
 		brokerEnum: () => t.enum("broker_enum", BROKER_ENUM),
 		cashFlowClassificationEnum: () =>
@@ -75,44 +76,6 @@ export const BaseTable = createBaseTable({
 			t.enum("instrument_kind_enum", INSTRUMENT_KIND_ENUM),
 		tradeSideEnum: () => t.enum("trade_side_enum", TRADE_SIDE_ENUM),
 
-		/**
-		 * Tenant column for Kosh family-scoped tables (→ families; see
-		 * docs/kosh/02-domain-model.md §1). Filled from the AsyncLocalStorage
-		 * request context on insert — NOT NULL because a ledger row without a
-		 * family is meaningless — and `readOnly`, so no caller can supply or
-		 * change it. Pair with a `scopes.default` familyId filter on each table.
-		 *
-		 * The value is a RUNTIME DEFAULT, deliberately not `setOnCreate`. On a
-		 * table that also has a runtime-default column (every Kosh table: the
-		 * ULID `id`), orchid-orm 1.73 appends the setOnCreate column and the
-		 * default column to the column list in one order and their values in
-		 * the other, so the two swap: the family id was written into `id` and a
-		 * fresh ULID into `family_id` (→ FK violation on every insert). Two
-		 * runtime defaults stay aligned, and are evaluated per row in
-		 * `createMany`.
-		 *
-		 * It is set on the column's data directly rather than with `.default()`
-		 * because `.readOnly().default()` types the column as an optional create
-		 * input that is also forbidden, which breaks inference at every call
-		 * site. This way the type stays plain `readOnly` — absent from create
-		 * input — while the runtime behaviour is exactly that of `.default(fn)`.
-		 */
-		koshFamilyId: () => {
-			const column = t
-				.string(26)
-				.foreignKey("families", "id", {
-					onUpdate: "RESTRICT",
-					onDelete: "CASCADE",
-				})
-				.readOnly();
-			column.data.default = () => {
-				const ctx = getRequestContext();
-				if (!ctx) throw new Error("No request context — cannot set familyId");
-				return ctx.familyId;
-			};
-			return column;
-		},
-
 		apiRequestMethodEnum: () =>
 			t.enum("api_request_method_enum", API_REQUEST_METHOD_ENUM),
 		apiProductRequestStatusEnum: () =>
@@ -125,8 +88,11 @@ export const BaseTable = createBaseTable({
 		themeSettingEnum: () => t.enum("theme_setting_enum", THEME_SETTING_ENUM),
 		timestampNumber: () => t.timestamp().asNumber(),
 		ulid: () => t.string(26),
-		// App-side ULID default. Do NOT put a `setOnCreate` column on a table
-		// that uses this — see the note on `koshFamilyId` above.
+		// App-side ULID default. Do NOT add a `setOnCreate` column to a table
+		// that uses this: orchid-orm 1.73 appends the setOnCreate column and the
+		// runtime-default column to an INSERT's column list in one order and
+		// their values in the other, so the two swap (the old tenant column was
+		// written into `id` this way).
 		ulidWithDefault: () => t.string(26).default(() => ulid()),
 		webhookStatusEnum: () => t.enum("webhook_status_enum", WEBHOOK_STATUS_ENUM),
 

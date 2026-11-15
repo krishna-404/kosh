@@ -2,6 +2,7 @@ import { cdnRouter } from "@backend/modules/cdn/cdn.user_app.router";
 import { filesRouter } from "@backend/modules/files/files.router";
 import { importsRouter } from "@backend/modules/imports/imports.router";
 import { notificationsRouter } from "@backend/modules/notifications/notifications.router";
+import { accessRouter } from "@backend/modules/portfolio/access.router";
 import { portfolioRouter } from "@backend/modules/portfolio/portfolio.router";
 import { meRouter } from "@backend/modules/users/me.user_app.router";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
@@ -36,6 +37,7 @@ const healthCheck = rpcPublicProcedure
 	});
 
 export const userAppRouter = {
+	access: accessRouter,
 	cdn: cdnRouter,
 	files: filesRouter,
 	health: healthCheck,

@@ -16,10 +16,10 @@ import { TradeChargeUnitTable } from "@backend/modules/ledger/tables/trade_charg
 import { TradeTable } from "@backend/modules/ledger/tables/trades.table";
 import { ApiProductRequestLogsTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { PushDeviceTable } from "@backend/modules/notifications/tables/push_devices.table";
+import { AccessGrantTable } from "@backend/modules/portfolio/tables/access_grants.table";
 import { AccountGroupMemberTable } from "@backend/modules/portfolio/tables/account_group_members.table";
 import { AccountGroupTable } from "@backend/modules/portfolio/tables/account_groups.table";
 import { BrokerAccountTable } from "@backend/modules/portfolio/tables/broker_accounts.table";
-import { FamilyTable } from "@backend/modules/portfolio/tables/families.table";
 import { PersonTable } from "@backend/modules/portfolio/tables/persons.table";
 import { SubscriptionsTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
 import { FeatureFlagTable } from "@backend/modules/system/tables/feature_flags.table";
@@ -35,10 +35,10 @@ export const db = orchidORM(
 	},
 	{
 		users: UserTable,
-		families: FamilyTable,
 		files: FileTable,
 
 		// Kosh ledger core (M1) — Layer 1 + Layer 2
+		accessGrants: AccessGrantTable,
 		persons: PersonTable,
 		brokerAccounts: BrokerAccountTable,
 		accountGroups: AccountGroupTable,

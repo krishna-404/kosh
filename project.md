@@ -12,7 +12,7 @@
 - Dividends tracked from public feeds with receipt confirmation; corporate actions (splits, bonuses, mergers, demergers, renames) applied automatically or via user prompts.
 - Foreign investments and crypto included, converted through an FX layer into INR. Long-term investments only — no F&O, no intraday.
 
-**Users:** the family. Each login belongs to one household (`families`), and everything a household imports is visible only to it. Giving other family members or the fund manager their own login to the same household is a later milestone.
+**Users:** family members, their fund managers, and anyone else they choose. Each person has their own login and gets View, Edit or Owner on specific broker accounts (or on all of one holder's accounts). There are no teams or workspaces; a "family" is a group of accounts a person saves for themselves.
 
 **Architecture principles** (non-negotiable):
 1. **Fund-flow ground truth** — metrics anchor to deposits/withdrawals, never trade dates.
