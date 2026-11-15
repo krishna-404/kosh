@@ -186,6 +186,48 @@ export const questionZod = z.discriminatedUnion("kind", [
 		quantity: z.string(),
 		price: z.string(),
 	}),
+	/**
+	 * A split or bonus Kosh did not apply by itself — because the exchange's
+	 * wording could not be read with certainty, or because someone undid it.
+	 */
+	z.object({
+		kind: z.literal("corporate_action"),
+		id: z.string(),
+		account: accountRefZod,
+		canAnswer: z.boolean(),
+		actionId: z.string(),
+		symbol: z.string(),
+		/** `bonus`, `split`, or something Kosh has no rule for (`other`). */
+		actionType: z.string(),
+		/** The exchange's own words: "Bonus 1:1". */
+		announcement: z.string(),
+		exDate: z.string(),
+		quantityBefore: z.string(),
+		/** What the holding would become; null when the ratio could not be read — the answer must give it. */
+		quantityAfter: z.string().nullable(),
+		/** Why it is being asked: the wording was unclear, or it was applied and then undone. */
+		why: z.enum(["unclear", "undone"]),
+	}),
+	/** The broker's holdings statement and Kosh's own working disagree. */
+	z.object({
+		kind: z.literal("holding_mismatch"),
+		id: z.string(),
+		account: accountRefZod,
+		canAnswer: z.boolean(),
+		instrumentId: z.string().nullable(),
+		symbol: z.string(),
+		asOf: z.string(),
+		/** What Kosh works out from the trades. */
+		expected: z.string(),
+		/** What the statement says. */
+		reported: z.string(),
+		/**
+		 * When the statement shows a whole multiple (or fraction) of what Kosh
+		 * expects, the likely cause is a split or bonus Kosh does not know of:
+		 * one share became this many.
+		 */
+		likelyFactor: z.number().nullable(),
+	}),
 	z.object({
 		kind: z.literal("transfer"),
 		id: z.string(),
@@ -248,4 +290,44 @@ export const tradePageZod = z.object({
 	rows: z.array(tradeRowZod),
 	nextBefore: z.string().nullable(),
 	total: z.number().int(),
+});
+
+// ─── Splits and bonuses ─────────────────────────────────────────────────
+
+/** A split or bonus as it stands on one account. */
+export const appliedActionZod = z.object({
+	applicationId: z.string(),
+	actionId: z.string(),
+	symbol: z.string(),
+	actionType: z.string(),
+	announcement: z.string(),
+	exDate: z.string(),
+	/** `applied`: the holding was changed · `declined`: someone said it does not apply here. */
+	state: z.enum(["applied", "declined"]),
+	quantityBefore: z.string(),
+	quantityAfter: z.string(),
+	/** Kosh did it from the exchange's announcement, or a person did. */
+	by: z.enum(["kosh", "person"]),
+	byName: z.string().nullable(),
+	/** Where the fact came from: the exchange, or someone who can edit this account. */
+	source: z.enum(["exchange", "person"]),
+	canUndo: z.boolean(),
+});
+export type AppliedAction = z.infer<typeof appliedActionZod>;
+
+/** Apply a split or bonus the exchange announced. `oneBecomes` is needed when its ratio could not be read. */
+export const applyActionInputZod = z.object({
+	accountId: z.string(),
+	actionId: z.string(),
+	oneBecomes: z.number().positive().max(10_000).optional(),
+});
+
+/** Record a split or bonus Kosh does not know of, for one account. */
+export const recordActionInputZod = z.object({
+	accountId: z.string(),
+	instrumentId: z.string(),
+	exDate: z.iso.date(),
+	/** One share became this many (2 for a 1:1 bonus, 10 for a ₹10 → ₹1 split). */
+	oneBecomes: z.number().positive().max(10_000),
+	note: z.string().trim().max(200).optional(),
 });

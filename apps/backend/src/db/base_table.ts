@@ -2,6 +2,7 @@ import {
 	ACCESS_LEVEL_ENUM,
 	API_PRODUCT_REQUEST_STATUS_ENUM,
 	API_REQUEST_METHOD_ENUM,
+	apiProductSkuEnum,
 	BROKER_ENUM,
 	CASH_FLOW_CLASSIFICATION_ENUM,
 	CHARGE_TYPE_ENUM,
@@ -20,7 +21,6 @@ import {
 	THEME_SETTING_ENUM,
 	TRADE_SIDE_ENUM,
 	WEBHOOK_STATUS_ENUM,
-	apiProductSkuEnum,
 } from "@connected-repo/zod-schemas/enums.zod";
 import { createBaseTable } from "orchid-orm";
 import { nodePostgresSchemaConfig } from "pqb/node-postgres";

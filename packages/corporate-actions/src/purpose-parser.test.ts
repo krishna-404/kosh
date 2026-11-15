@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePurpose } from "./purpose-parser";
+import { parsePurpose } from "./purpose-parser.js";
 
 describe("dividend purpose strings", () => {
 	it.each([
@@ -74,6 +74,21 @@ describe("split purpose strings", () => {
 		expect(result.parsed?.type).toBe("split");
 		expect(result.parsed?.ratioOld).toBe(ratioOld);
 		expect(result.parsed?.ratioNew).toBe(ratioNew);
+	});
+
+	it("reads the exchange's current wording, with (Sub-Division) and Per Share", () => {
+		// Verbatim from NSE's corporate-actions feed, Oct–Nov 2026.
+		const cases: [string, number, number][] = [
+			["Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share", 10, 1],
+			["Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share", 10, 5],
+			["Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share", 5, 1],
+			["Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share", 10, 2],
+		];
+		for (const [text, ratioOld, ratioNew] of cases) {
+			const result = parsePurpose(text);
+			expect(result.confidence).toBe("high");
+			expect(result.parsed).toMatchObject({ type: "split", ratioOld, ratioNew });
+		}
 	});
 
 	it("split with unparseable face values is low confidence with null ratios", () => {

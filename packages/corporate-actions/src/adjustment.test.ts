@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { adjustPrice, adjustQuantity, computeAdjustmentFactors } from "./adjustment";
-import type { CorporateAction } from "./types";
+import { adjustPrice, adjustQuantity, computeAdjustmentFactors } from "./adjustment.js";
+import type { CorporateAction } from "./types.js";
 
 const SPLIT_10_TO_1: CorporateAction = {
 	id: "ca-split",

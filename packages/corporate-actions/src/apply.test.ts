@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyActionToPosition } from "./apply";
-import type { CorporateAction, Position } from "./types";
+import { applyActionToPosition } from "./apply.js";
+import type { CorporateAction, Position } from "./types.js";
 
 function action(
 	overrides: Partial<CorporateAction> & Pick<CorporateAction, "type">,

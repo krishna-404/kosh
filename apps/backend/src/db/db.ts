@@ -2,6 +2,8 @@ import { dbConfig } from "@backend/db/config.db";
 import { AccountTable } from "@backend/modules/auth/tables/account.auth.table";
 import { SessionTable } from "@backend/modules/auth/tables/session.auth.table";
 import { VerificationTable } from "@backend/modules/auth/tables/verification.auth.table";
+import { CorporateActionApplicationTable } from "@backend/modules/corporate-actions/tables/corporate_action_applications.table";
+import { CorporateActionTable } from "@backend/modules/corporate-actions/tables/corporate_actions.table";
 import { PgTbusTaskLogTable } from "@backend/modules/events/tables/pg_tbus_task_log.table";
 import { FileTable } from "@backend/modules/files/tables/files.table";
 import { ImportBatchTable } from "@backend/modules/imports/tables/import_batches.table";
@@ -11,15 +13,15 @@ import { RawLedgerLineTable } from "@backend/modules/imports/tables/raw_ledger_l
 import { RawTradeTable } from "@backend/modules/imports/tables/raw_trades.table";
 import { InstrumentAliasTable } from "@backend/modules/instruments/tables/instrument_aliases.table";
 import { InstrumentTable } from "@backend/modules/instruments/tables/instruments.table";
-import { MarketStateTable } from "@backend/modules/market-data/tables/market_state.table";
-import { PriceBarTable } from "@backend/modules/market-data/tables/price_bars.table";
-import { ProviderPayloadTable } from "@backend/modules/market-data/tables/provider_payloads.table";
 import { CashFlowTable } from "@backend/modules/ledger/tables/cash_flows.table";
 import { EventTable } from "@backend/modules/ledger/tables/events.table";
 import { TradeChargeUnitTable } from "@backend/modules/ledger/tables/trade_charge_units.table";
 import { TradeTable } from "@backend/modules/ledger/tables/trades.table";
 import { TransferLinkTable } from "@backend/modules/ledger/tables/transfer_links.table";
 import { ApiProductRequestLogsTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
+import { MarketStateTable } from "@backend/modules/market-data/tables/market_state.table";
+import { PriceBarTable } from "@backend/modules/market-data/tables/price_bars.table";
+import { ProviderPayloadTable } from "@backend/modules/market-data/tables/provider_payloads.table";
 import { PushDeviceTable } from "@backend/modules/notifications/tables/push_devices.table";
 import { AccessGrantTable } from "@backend/modules/portfolio/tables/access_grants.table";
 import { AccountGroupMemberTable } from "@backend/modules/portfolio/tables/account_group_members.table";
@@ -62,6 +64,8 @@ export const db = orchidORM(
 		trades: TradeTable,
 		tradeChargeUnits: TradeChargeUnitTable,
 		cashFlows: CashFlowTable,
+		corporateActionApplications: CorporateActionApplicationTable,
+		corporateActions: CorporateActionTable,
 		transferLinks: TransferLinkTable,
 
 		// API only

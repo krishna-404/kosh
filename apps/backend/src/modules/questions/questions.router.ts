@@ -1,4 +1,12 @@
 import {
+	applyAction,
+	declineAction,
+	dismissMismatch,
+	listAppliedActions,
+	recordAction,
+	undoApplication,
+} from "@backend/modules/corporate-actions/services/corporate_actions.service";
+import {
 	answerIsin,
 	answerLine,
 	answerTransfer,
@@ -9,9 +17,12 @@ import {
 } from "@backend/modules/questions/questions.service";
 import { rpcPortfolioProcedure } from "@backend/procedures/protected.procedure";
 import {
+	appliedActionZod,
+	applyActionInputZod,
 	lineAnswerZod,
 	questionListInputZod,
 	questionZod,
+	recordActionInputZod,
 } from "@connected-repo/zod-schemas/kosh/statements.zod";
 import { z } from "zod";
 
@@ -62,7 +73,59 @@ const undoTransfer = rpcPortfolioProcedure
 		return { ok: true as const };
 	});
 
+// ─── Splits and bonuses ─────────────────────────────────────────────────
+
+const application = z.object({ applicationId: z.string() });
+
+// "Yes, this happened to this account" — with the ratio, if the announcement's could not be read.
+const applyCorporateAction = rpcPortfolioProcedure
+	.input(applyActionInputZod)
+	.output(application)
+	.handler(({ input }) => applyAction(input));
+
+// "Not for this account."
+const declineCorporateAction = rpcPortfolioProcedure
+	.input(applyActionInputZod.pick({ accountId: true, actionId: true }))
+	.output(application)
+	.handler(({ input }) => declineAction(input));
+
+// A split or bonus the exchange's feed does not have, for this account only.
+const recordCorporateAction = rpcPortfolioProcedure
+	.input(recordActionInputZod)
+	.output(application)
+	.handler(({ input }) => recordAction(input));
+
+// Take a split, bonus or "not for this account" back. It becomes a question again.
+const undoCorporateAction = rpcPortfolioProcedure
+	.input(application)
+	.output(ok)
+	.handler(async ({ input }) => {
+		await undoApplication(input.applicationId);
+		return { ok: true as const };
+	});
+
+// The splits and bonuses standing on an account.
+const corporateActions = rpcPortfolioProcedure
+	.input(z.object({ accountId: z.string() }))
+	.output(z.array(appliedActionZod))
+	.handler(({ input }) => listAppliedActions(input.accountId));
+
+// "I know the statement differs" — stop asking about this share for this statement.
+const dismissHoldingMismatch = rpcPortfolioProcedure
+	.input(z.object({ accountId: z.string(), symbol: z.string().max(60), asOf: z.iso.date() }))
+	.output(ok)
+	.handler(async ({ input }) => {
+		await dismissMismatch(input);
+		return { ok: true as const };
+	});
+
 export const questionsRouter = {
+	applyCorporateAction,
+	declineCorporateAction,
+	recordCorporateAction,
+	undoCorporateAction,
+	corporateActions,
+	dismissHoldingMismatch,
 	list,
 	answerLedgerLine,
 	changeLedgerLine,

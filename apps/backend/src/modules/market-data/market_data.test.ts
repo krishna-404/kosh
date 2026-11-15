@@ -80,6 +80,8 @@ describe("Market data", () => {
 			const bytes = DAYS[date];
 			return bytes && isUdiffUrl === publishedAsUdiff ? { status: 200, bytes } : { status: 404, bytes: Buffer.alloc(0) };
 		}
+		// Nothing announced for these shares.
+		if (url.includes("corporates-corporateActions")) return { status: 200, bytes: Buffer.from("[]") };
 		if (url.includes("NAVAll")) return { status: 200, bytes: Buffer.from(NAV_ALL) };
 		const scheme = /\/mf\/(\d+)/.exec(url)?.[1];
 		const history = scheme ? NAV_HISTORY[scheme] : undefined;
@@ -199,6 +201,77 @@ describe("Market data", () => {
 		const second = await syncMarketData({ today: "2024-07-10", maxDays: 10 });
 		expect(second.daysRemaining).toBe(0);
 		expect((await closes(ALPHAX)).bars).toHaveLength(3);
+	});
+
+	it("fills in the whole history however the downloads are chunked", async () => {
+		// Five weeks of market days. Downloads go newest-first, then oldest-first,
+		// a few at a time — the days in between must not be passed over.
+		const days: string[] = [];
+		for (let ms = Date.parse("2024-06-03"); ms <= Date.parse("2024-07-10"); ms += 86_400_000) {
+			const d = new Date(ms);
+			if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) days.push(d.toISOString().slice(0, 10));
+		}
+		const saved = { ...DAYS };
+		for (const [n, day] of days.entries())
+			DAYS[day] = (day >= "2024-07-08" ? udiffBhavcopy : oldBhavcopy)([["BETAX", BETAX, String(200 + n)]]);
+		try {
+			await upload("early.csv", tradebook([`BETAX,${BETAX},2024-06-03,NSE,EQ,EQ,buy,false,5,200,T7,O7,2024-06-03T10:00:00`]));
+			let rounds = 0;
+			let report = await syncMarketData({ today: "2024-07-10", maxDays: 4 });
+			while (report.daysRemaining > 0 && rounds++ < 20) report = await syncMarketData({ today: "2024-07-10", maxDays: 4 });
+			expect(report.problems).toEqual([]);
+			expect((await closes(BETAX)).bars.map(([d]) => d)).toEqual(days);
+			const betax = await db.instruments.where({ isin: BETAX }).select("pricedFrom", "pricedThrough").take();
+			expect(betax).toEqual({ pricedFrom: "2024-06-03", pricedThrough: "2024-07-10" });
+		} finally {
+			for (const key of Object.keys(DAYS)) delete DAYS[key];
+			Object.assign(DAYS, saved);
+		}
+	});
+
+	it("follows a share through a change of ISIN, as a face-value split brings", async () => {
+		// From the 11th ALPHAX trades under a new number on the same share line.
+		const NEXT = "INE001A01029";
+		const saved = { ...DAYS };
+		DAYS["2024-07-11"] = udiffBhavcopy([["ALPHAX", NEXT, "20.9"], ["BETAX", BETAX, "202"]]);
+		DAYS["2024-07-12"] = udiffBhavcopy([["ALPHAX", NEXT, "21"], ["BETAX", BETAX, "203"]]);
+		try {
+			const report = await syncMarketData({ today: "2024-07-12" });
+			expect(report.problems).toEqual([]);
+
+			// The same instrument, now known by the new number; its prices carry on.
+			expect(await db.instruments.where({ isin: ALPHAX }).count()).toBe(0);
+			const alphax = await closes(NEXT);
+			expect(alphax.bars.map(([d]) => d)).toEqual(["2024-07-05", "2024-07-08", "2024-07-10", "2024-07-11", "2024-07-12"]);
+			expect(alphax.bars.at(-1)).toEqual(["2024-07-12", 21]);
+			expect(await db.instrumentAliases.where({ instrumentId: alphax.id, aliasKind: "old_isin" }).pluck("alias")).toEqual([
+				ALPHAX,
+			]);
+
+			// A later statement names it either way; both are the one share.
+			await upload(
+				"later.csv",
+				tradebook([
+					`ALPHAX,${NEXT},2024-07-12,NSE,EQ,EQ,buy,false,5,21,T8,O8,2024-07-12T10:00:00`,
+					`ALPHAX,${ALPHAX},2024-07-08,NSE,EQ,EQ,buy,false,1,103,T9,O9,2024-07-08T10:00:00`,
+				]),
+			);
+			expect(await db.trades.where({ instrumentId: alphax.id }).count()).toBe(3);
+			expect(await db.instruments.where({ symbolCanonical: "ALPHAX" }).count()).toBe(1);
+		} finally {
+			for (const key of Object.keys(DAYS)) delete DAYS[key];
+			Object.assign(DAYS, saved);
+		}
+	});
+
+	it("knows a share by a newer ISIN first seen in a statement", async () => {
+		const NEXT = "INE001A01029";
+		await upload("later.csv", tradebook([`ALPHAX,${NEXT},2024-07-09,NSE,EQ,EQ,buy,false,5,21,T8,O8,2024-07-09T10:00:00`]));
+		const instrument = await db.instruments.where({ symbolCanonical: "ALPHAX" }).select("id", "isin");
+		expect(instrument).toEqual([{ id: expect.any(String), isin: NEXT }]);
+		// A fund's ISIN is never matched this way.
+		await upload("fund.csv", tradebook([`OTHERFUND,INF000F01027,2024-07-09,NSE,MF,MF,buy,false,5,21,T9,O9,2024-07-09T10:00:00`]));
+		expect(await db.instruments.where({ isin: { in: [FUND, "INF000F01027"] } }).count()).toBe(2);
 	});
 
 	it("stops and says so when the exchange refuses, keeping nothing it was not given", async () => {

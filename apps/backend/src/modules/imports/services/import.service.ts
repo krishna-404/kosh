@@ -1,4 +1,5 @@
 import { db } from "@backend/db/db";
+import { findInstrumentsByIsin } from "@backend/modules/instruments/services/isin.instruments.service";
 import { onLedgerChanged } from "@backend/modules/metrics/services/ledger_changed";
 import {
 	atLeast,
@@ -98,8 +99,8 @@ async function resolveInstruments(
 	const isins = [...byIsin.keys()];
 	if (isins.length === 0) return new Map();
 
-	const known = await db.instruments.where({ isin: { in: isins } }).select("id", "isin");
-	const idByIsin = new Map(known.map((i) => [i.isin as string, i.id]));
+	// A share keeps its place across a change of ISIN (a face-value split).
+	const idByIsin = await findInstrumentsByIsin(isins);
 	const missing = isins.filter((isin) => !idByIsin.has(isin));
 	for (const group of chunks(missing)) {
 		const created = await db.instruments

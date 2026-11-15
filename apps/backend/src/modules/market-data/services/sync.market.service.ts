@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { db } from "@backend/db/db";
 import { getRequestContext, requestContext } from "@backend/lib/request-context";
+import {
+	settleActions,
+	syncCorporateActions,
+} from "@backend/modules/corporate-actions/services/corporate_actions.service";
+import { adoptIsin, shareLineOf } from "@backend/modules/instruments/services/isin.instruments.service";
 import { logger } from "@backend/utils/logger.utils";
 import { bhavcopyUrls, parseBhavcopy } from "../lib/bhavcopy.market";
 import { AMFI_NAV_ALL_URL, mfapiUrl, parseAmfiNavAll, parseMfapi } from "../lib/funds.market";
@@ -29,6 +34,10 @@ export interface SyncReport {
 	daysFetched: number;
 	daysRemaining: number;
 	barsWritten: number;
+	/** New split, bonus and dividend announcements stored. */
+	actionsFound: number;
+	/** Splits and bonuses applied to accounts by this run. */
+	actionsApplied: number;
 	/** Why the run stopped early, in words fit for a status line. */
 	problems: string[];
 }
@@ -97,11 +106,13 @@ async function insertBars(
 async function trackInstruments(): Promise<void> {
 	const held = await db.$query<{ instrument_id: string; since: string }>`
 		SELECT instrument_id, min(trade_date)::text AS since FROM trades WHERE is_live GROUP BY 1`;
+	// When something turns out to have been held earlier than known, its
+	// prices are gone through again from the new start.
 	for (const row of held.rows)
 		await db.instruments
 			.where({ id: row.instrument_id })
 			.whereSql`"tracked_since" IS NULL OR "tracked_since" > ${row.since}::date`
-			.update({ trackedSince: row.since });
+			.update({ trackedSince: row.since, pricedFrom: null, pricedThrough: null });
 
 	// The benchmarks are needed from the first day anyone has money in.
 	const first = await db.$query<{ since: string | null }>`
@@ -112,8 +123,8 @@ async function trackInstruments(): Promise<void> {
 	const since = first.rows[0]?.since;
 	if (since)
 		await db.instruments
-			.whereSql`"slug" IS NOT NULL AND ("tracked_since" IS NULL OR "tracked_since" > ${since}::date)`
-			.update({ trackedSince: addDays(since, -7) });
+			.whereSql`"slug" IS NOT NULL AND ("tracked_since" IS NULL OR "tracked_since" > ${addDays(since, -7)}::date)`
+			.update({ trackedSince: addDays(since, -7), pricedFrom: null, pricedThrough: null });
 }
 
 // ── 2. Fetch the days that are not held yet ─────────────────────────────
@@ -180,22 +191,32 @@ async function fetchBhavcopies(
 async function applyBhavcopies(today: string, report: SyncReport): Promise<void> {
 	const instruments = await db.instruments
 		.whereSql`"tracked_since" IS NOT NULL AND "isin" IS NOT NULL AND ("price_source" IS NULL OR "price_source" = 'nse')`
-		.select("id", "isin", "priceSource", "trackedSince", "pricedFrom", "pricedThrough");
+		.select("id", "isin", "priceSource", "trackedSince", "pricedThrough");
 	if (instruments.length === 0) return;
 
 	const from = instruments.map((i) => i.trackedSince as string).sort()[0] as string;
-	const days = await db.providerPayloads
-		.where({ source: BHAVCOPY, status: "ok", key: { gte: from, lte: today } })
+	const held = await db.providerPayloads
+		.where({ source: BHAVCOPY, key: { gte: from, lte: today } })
 		.order({ key: "ASC" })
-		.pluck("key");
+		.select("key", "status");
+	const fetched = new Set(held.map((h) => h.key));
+	const days = held.filter((h) => h.status === "ok").map((h) => h.key);
 
-	// Which instruments still need which day.
+	// `pricedThrough` is a frontier: every day up to it has been gone through
+	// for that instrument. Files arrive out of order (the newest first, then
+	// the history), so a day is read again until the frontier has passed it —
+	// reading one twice adds nothing, and no day in between is ever skipped.
 	const needs = (i: (typeof instruments)[number], day: string) =>
-		day >= (i.trackedSince as string) &&
-		(i.pricedThrough === null || day > i.pricedThrough || day < (i.pricedFrom as string));
+		day >= (i.trackedSince as string) && (i.pricedThrough === null || day > i.pricedThrough);
 	const todo = days.filter((day) => instruments.some((i) => needs(i, day)));
 
-	const seen = new Map<string, { first: string; last: string; found: boolean }>();
+	const formerIsins = new Map<string, string[]>();
+	for (const a of await db.instrumentAliases
+		.where({ aliasKind: "old_isin", instrumentId: { in: instruments.map((i) => i.id) } })
+		.select("instrumentId", "alias"))
+		formerIsins.set(a.instrumentId, [...(formerIsins.get(a.instrumentId) ?? []), a.alias]);
+
+	const found = new Set<string>();
 	for (let offset = 0; offset < todo.length; offset += 20) {
 		const files = await db.providerPayloads
 			.where({ source: BHAVCOPY, key: { in: todo.slice(offset, offset + 20) } })
@@ -211,30 +232,57 @@ async function applyBhavcopies(today: string, report: SyncReport): Promise<void>
 				report.problems.push(`Could not read the bhavcopy for ${file.key}: ${error}`);
 				continue;
 			}
+			// Built only if a share is missing under every number known for it.
+			let byLine: Map<string, string[]> | null = null;
 			for (const i of instruments) {
 				if (!needs(i, file.key)) continue;
-				const state = seen.get(i.id) ?? { first: file.key, last: file.key, found: false };
-				state.last = file.key;
-				const close = closes.get(i.isin as string);
-				if (close) {
-					bars.push({ instrumentId: i.id, barDate: file.key, close, source: "nse" });
-					state.found = true;
+				const numbers = [i.isin as string, ...(formerIsins.get(i.id) ?? [])];
+				let close = numbers.map((isin) => closes.get(isin)).find(Boolean);
+				if (!close) {
+					// A face-value split gives the share a new ISIN from the ex-date:
+					// the one row on the same share line is the same share.
+					const line = shareLineOf(i.isin as string);
+					if (line) {
+						if (!byLine) {
+							byLine = new Map();
+							for (const isin of closes.keys()) {
+								const l = shareLineOf(isin);
+								if (l) byLine.set(l, [...(byLine.get(l) ?? []), isin]);
+							}
+						}
+						const candidates = byLine.get(line) ?? [];
+						const next = candidates.length === 1 ? candidates[0] : undefined;
+						if (next) {
+							const was = i.isin as string;
+							i.isin = await adoptIsin(i, next, file.key);
+							formerIsins.set(i.id, [...new Set([...(formerIsins.get(i.id) ?? []), was, next])]);
+							close = closes.get(next);
+						}
+					}
 				}
-				seen.set(i.id, state);
+				if (!close) continue;
+				bars.push({ instrumentId: i.id, barDate: file.key, close, source: "nse" });
+				found.add(i.id);
 			}
 		}
 		report.barsWritten += await insertBars(bars);
 	}
 
 	for (const i of instruments) {
-		const state = seen.get(i.id);
-		if (!state) continue;
-		await db.instruments.where({ id: i.id }).update({
-			pricedFrom: minDate(i.pricedFrom, state.first),
-			pricedThrough: maxDate(i.pricedThrough, state.last),
-			// Seen on NSE at least once: that is where its price comes from.
-			...(state.found && i.priceSource === null ? { priceSource: "nse" } : {}),
-		});
+		// Move the frontier to the last day before the first one not fetched yet.
+		let frontier = i.pricedThrough;
+		for (let d = frontier ? addDays(frontier, 1) : (i.trackedSince as string); d <= today; d = addDays(d, 1)) {
+			if (isWeekday(d) && !fetched.has(d)) break;
+			frontier = d;
+		}
+		const priced = found.has(i.id) && i.priceSource === null;
+		if (frontier !== i.pricedThrough || priced)
+			await db.instruments.where({ id: i.id }).update({
+				pricedFrom: i.trackedSince,
+				pricedThrough: frontier,
+				// Seen on NSE at least once: that is where its price comes from.
+				...(priced ? { priceSource: "nse" } : {}),
+			});
 	}
 }
 
@@ -322,7 +370,14 @@ async function acquireLease(): Promise<boolean> {
 }
 
 async function run(options: SyncOptions): Promise<SyncReport> {
-	const report: SyncReport = { daysFetched: 0, daysRemaining: 0, barsWritten: 0, problems: [] };
+	const report: SyncReport = {
+		daysFetched: 0,
+		daysRemaining: 0,
+		barsWritten: 0,
+		actionsFound: 0,
+		actionsApplied: 0,
+		problems: [],
+	};
 	if (!(await acquireLease())) {
 		report.problems.push("Another sync is running");
 		return report;
@@ -341,6 +396,9 @@ async function run(options: SyncOptions): Promise<SyncReport> {
 		// Only once NSE's files have been gone through can "not on NSE" be said.
 		if (report.daysRemaining === 0) await resolveFunds(report);
 		await syncNavs(today, report);
+		// 5. Splits and bonuses: what the exchange announced, applied where Kosh is sure.
+		report.actionsFound = await syncCorporateActions(today, report.problems);
+		report.actionsApplied = await settleActions();
 	} finally {
 		const note =
 			report.problems.length > 0

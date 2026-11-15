@@ -1,5 +1,9 @@
 import { db } from "@backend/db/db";
 import {
+	listActionQuestions,
+	listHoldingMismatches,
+} from "@backend/modules/corporate-actions/services/corporate_actions.service";
+import {
 	compareMoney,
 	isZeroMoney,
 	mulToMoney,
@@ -11,6 +15,7 @@ import {
 	balanceBefore,
 	openingIsExplained,
 } from "@backend/modules/imports/services/history.service";
+import { findInstrumentsByIsin } from "@backend/modules/instruments/services/isin.instruments.service";
 import { onLedgerChanged } from "@backend/modules/metrics/services/ledger_changed";
 import {
 	atLeast,
@@ -163,6 +168,8 @@ export async function listQuestions(input: { accountId?: string }): Promise<Ques
 		});
 	}
 
+	const asked = accounts.filter((a) => wanted.includes(a.id));
+	questions.push(...(await listActionQuestions(asked)), ...(await listHoldingMismatches(asked)));
 	return questions;
 }
 
@@ -333,8 +340,9 @@ export async function answerIsin(input: { rawTradeId: string; isin: string }) {
 		throw bad("Someone has already answered this.");
 
 	return db.$transaction(async () => {
+		const knownId = (await findInstrumentsByIsin([isin])).get(isin);
 		const instrument =
-			(await db.instruments.where({ isin }).select("id").takeOptional()) ??
+			(knownId ? { id: knownId } : null) ??
 			(await db.instruments.create({
 				kind: "equity",
 				isin,
