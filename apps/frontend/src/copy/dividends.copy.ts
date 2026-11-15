@@ -58,8 +58,8 @@ export const DIVIDENDS = {
 		count: dividends,
 		toConfirm: (count: number): string => `${count.toLocaleString("en-IN")} to confirm`,
 		notReceived: (count: number): string => `${count.toLocaleString("en-IN")} not received`,
-		/** Read out with a year's total, which is otherwise a bare figure. */
-		yearTotal: "Counted",
+		/** Read out with a year's heading, where the total is otherwise a bare figure. */
+		yearTotal: (total: string): string => `${total} counted`,
 	},
 
 	// One dividend

@@ -10,7 +10,7 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import type { Dividend } from "@connected-repo/zod-schemas/kosh/income.zod";
 import { DIVIDENDS as D } from "@frontend/copy/dividends.copy";
 import { useId } from "react";
-import { type DividendYear, paiseShown } from "../dividends.utils";
+import { type DividendYear, paiseShown, rupees } from "../dividends.utils";
 import { DividendRow, type RowHandlers } from "./DividendRow";
 import { headingAreas, rowGrid } from "./rowGrid";
 
@@ -28,18 +28,25 @@ const YearSection = ({ year, open, onToggle, handlers, compact, busy }: YearSect
 	const headingId = useId();
 	const listId = useId();
 	const withActions = handlers !== undefined;
-	const counts = [
+	const waiting = year.toConfirm > 0 ? [D.list.toConfirm(year.toConfirm)] : [];
+	const struck = year.notReceived > 0 ? [D.list.notReceived(year.notReceived)] : [];
+	// On a phone the tag's words join this line instead of taking a line of their own.
+	const counts = [D.list.count(year.dividends.length), ...(compact ? waiting : []), ...struck];
+	// Said in one piece, in a fixed order, however the heading is laid out.
+	const spoken = [
+		D.list.year(year.label),
 		D.list.count(year.dividends.length),
-		// On a phone the tag's words join this line instead of taking a line of their own.
-		...(compact && year.toConfirm > 0 ? [D.list.toConfirm(year.toConfirm)] : []),
-		...(year.notReceived > 0 ? [D.list.notReceived(year.notReceived)] : []),
-	];
+		...waiting,
+		...struck,
+		D.list.yearTotal(rupees(year.total)),
+	].join(", ");
 
 	return (
 		<Box component="section" aria-labelledby={headingId} sx={(theme) => ({ borderTop: `1px solid ${theme.vars.palette.kosh.line}` })}>
 			<Typography variant="subtitle2" component="h3" sx={{ m: 0 }}>
 				<ButtonBase
 					id={headingId}
+					aria-label={spoken}
 					aria-expanded={open}
 					aria-controls={open ? listId : undefined}
 					onClick={onToggle}
@@ -59,8 +66,9 @@ const YearSection = ({ year, open, onToggle, handlers, compact, busy }: YearSect
 						}),
 					]}
 				>
-					<Box sx={{ gridArea: "name", display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+					<Box component="span" sx={{ gridArea: "name", display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
 						<Box
+							component="span"
 							aria-hidden
 							sx={(theme) => ({
 								display: "grid",
@@ -82,7 +90,7 @@ const YearSection = ({ year, open, onToggle, handlers, compact, busy }: YearSect
 						{counts.join(" · ")}
 					</Typography>
 					{!compact && (
-						<Box sx={{ gridArea: "state", display: "flex" }}>
+						<Box component="span" sx={{ gridArea: "state", display: "flex" }}>
 							{year.toConfirm > 0 && (
 								<Tag tone="pending" icon={<IconClock />}>
 									{D.list.toConfirm(year.toConfirm)}
@@ -90,8 +98,7 @@ const YearSection = ({ year, open, onToggle, handlers, compact, busy }: YearSect
 							)}
 						</Box>
 					)}
-					<Box sx={{ gridArea: "amount", textAlign: "right" }}>
-						<Box component="span" sx={visuallyHidden}>{`${D.list.yearTotal} `}</Box>
+					<Box component="span" sx={{ gridArea: "amount", textAlign: "right" }}>
 						<Money value={year.total} decimals={paiseShown(year.total)} sx={{ fontWeight: 700 }} />
 					</Box>
 				</ButtonBase>
@@ -115,15 +122,6 @@ const YearSection = ({ year, open, onToggle, handlers, compact, busy }: YearSect
 		</Box>
 	);
 };
-
-const visuallyHidden = {
-	position: "absolute",
-	width: "1px",
-	height: "1px",
-	overflow: "hidden",
-	clip: "rect(0 0 0 0)",
-	whiteSpace: "nowrap",
-} as const;
 
 interface DividendYearsProps {
 	years: readonly DividendYear<Dividend>[];

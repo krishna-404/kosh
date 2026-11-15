@@ -163,7 +163,7 @@ export const FeePanel = ({ accountId }: FeePanelProps) => {
 					)}
 					{past.length > 0 && (
 						<Box sx={{ order: 5, minWidth: 0 }}>
-							<EarlierCard earlier={past} today={today} />
+							<EarlierCard earlier={past} charged={data.charges.length > 0} today={today} />
 						</Box>
 					)}
 				</Box>

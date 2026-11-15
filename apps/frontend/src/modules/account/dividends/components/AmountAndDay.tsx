@@ -1,6 +1,7 @@
 import { InputAdornment } from "@connected-repo/ui-mui/form/InputAdornment";
 import { TextField } from "@connected-repo/ui-mui/form/TextField";
 import { DIVIDENDS as D } from "@frontend/copy/dividends.copy";
+import { useEffect, useRef } from "react";
 import { todayIso } from "../dividends.utils";
 
 interface AmountAndDayProps {
@@ -35,38 +36,48 @@ export const AmountAndDay = ({
 	earliest,
 	disabled,
 	focusAmount = false,
-}: AmountAndDayProps) => (
-	<>
-		<TextField
-			label={D.change.amountLabel}
-			value={amount}
-			onChange={(event) => onAmount(event.target.value)}
-			onFocus={(event) => event.target.select()}
-			error={amountProblem !== undefined}
-			helperText={amountProblem ?? D.change.amountHelper}
-			disabled={disabled}
-			autoFocus={focusAmount}
-			autoComplete="off"
-			fullWidth
-			slotProps={{
-				htmlInput: { inputMode: "decimal", maxLength: 24 },
-				input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
-				formHelperText: { role: amountProblem ? "alert" : undefined },
-			}}
-		/>
-		<TextField
-			label={D.change.dateLabel}
-			type="date"
-			value={receivedOn}
-			onChange={(event) => onReceivedOn(event.target.value)}
-			error={dateProblem !== undefined}
-			helperText={dateProblem ?? dateHelper}
-			disabled={disabled}
-			fullWidth
-			slotProps={{
-				htmlInput: { min: earliest, max: todayIso() },
-				formHelperText: { role: dateProblem ? "alert" : undefined },
-			}}
-		/>
-	</>
-);
+}: AmountAndDayProps) => {
+	const amountInput = useRef<HTMLInputElement | null>(null);
+	useEffect(() => {
+		if (!focusAmount) return;
+		// A dialog first takes focus for itself; once it has, hand it to the field the person came for.
+		const timer = window.setTimeout(() => amountInput.current?.focus(), 0);
+		return () => window.clearTimeout(timer);
+	}, [focusAmount]);
+
+	return (
+		<>
+			<TextField
+				label={D.change.amountLabel}
+				value={amount}
+				onChange={(event) => onAmount(event.target.value)}
+				onFocus={(event) => event.target.select()}
+				error={amountProblem !== undefined}
+				helperText={amountProblem ?? D.change.amountHelper}
+				disabled={disabled}
+				inputRef={amountInput}
+				autoComplete="off"
+				fullWidth
+				slotProps={{
+					htmlInput: { inputMode: "decimal", maxLength: 24 },
+					input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
+					formHelperText: { role: amountProblem ? "alert" : undefined },
+				}}
+			/>
+			<TextField
+				label={D.change.dateLabel}
+				type="date"
+				value={receivedOn}
+				onChange={(event) => onReceivedOn(event.target.value)}
+				error={dateProblem !== undefined}
+				helperText={dateProblem ?? dateHelper}
+				disabled={disabled}
+				fullWidth
+				slotProps={{
+					htmlInput: { min: earliest, max: todayIso() },
+					formHelperText: { role: dateProblem ? "alert" : undefined },
+				}}
+			/>
+		</>
+	);
+};

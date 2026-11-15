@@ -8,12 +8,14 @@ import { arrangementSentence } from "../fees.utils";
 interface EarlierCardProps {
 	/** Arrangements that ran before the one running now, newest first. */
 	earlier: readonly FeeArrangement[];
+	/** Fees were charged on this account, so what these came to is still in the return. */
+	charged: boolean;
 	today: string;
 }
 
 /** What the manager was paid before — listed quietly, each as its sentence with its dates. */
-export const EarlierCard = ({ earlier, today }: EarlierCardProps) => (
-	<SectionCard title={FEES.earlier.title} subtitle={FEES.earlier.lead}>
+export const EarlierCard = ({ earlier, charged, today }: EarlierCardProps) => (
+	<SectionCard title={FEES.earlier.title} subtitle={charged ? FEES.earlier.lead : undefined}>
 		<Box
 			component="ul"
 			sx={(theme) => ({
