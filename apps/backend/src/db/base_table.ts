@@ -77,24 +77,41 @@ export const BaseTable = createBaseTable({
 
 		/**
 		 * Tenant column for Kosh family-scoped tables (→ families; see
-		 * docs/kosh/02-domain-model.md §1). Auto-stamped from the
-		 * AsyncLocalStorage request context on insert — NOT NULL because a
-		 * ledger row without a family is meaningless. Pair with a
-		 * `scopes.default` familyId filter on each table.
+		 * docs/kosh/02-domain-model.md §1). Filled from the AsyncLocalStorage
+		 * request context on insert — NOT NULL because a ledger row without a
+		 * family is meaningless — and `readOnly`, so no caller can supply or
+		 * change it. Pair with a `scopes.default` familyId filter on each table.
+		 *
+		 * The value is a RUNTIME DEFAULT, deliberately not `setOnCreate`. On a
+		 * table that also has a runtime-default column (every Kosh table: the
+		 * ULID `id`), orchid-orm 1.73 appends the setOnCreate column and the
+		 * default column to the column list in one order and their values in
+		 * the other, so the two swap: the family id was written into `id` and a
+		 * fresh ULID into `family_id` (→ FK violation on every insert). Two
+		 * runtime defaults stay aligned, and are evaluated per row in
+		 * `createMany`.
+		 *
+		 * It is set on the column's data directly rather than with `.default()`
+		 * because `.readOnly().default()` types the column as an optional create
+		 * input that is also forbidden, which breaks inference at every call
+		 * site. This way the type stays plain `readOnly` — absent from create
+		 * input — while the runtime behaviour is exactly that of `.default(fn)`.
 		 */
-		koshFamilyId: () =>
-			t
+		koshFamilyId: () => {
+			const column = t
 				.string(26)
 				.foreignKey("families", "id", {
 					onUpdate: "RESTRICT",
 					onDelete: "CASCADE",
 				})
-				.readOnly()
-				.setOnCreate(() => {
-					const ctx = getRequestContext();
-					if (!ctx) throw new Error("No request context — cannot set familyId");
-					return ctx.familyId;
-				}),
+				.readOnly();
+			column.data.default = () => {
+				const ctx = getRequestContext();
+				if (!ctx) throw new Error("No request context — cannot set familyId");
+				return ctx.familyId;
+			};
+			return column;
+		},
 
 		apiRequestMethodEnum: () =>
 			t.enum("api_request_method_enum", API_REQUEST_METHOD_ENUM),
@@ -108,12 +125,8 @@ export const BaseTable = createBaseTable({
 		themeSettingEnum: () => t.enum("theme_setting_enum", THEME_SETTING_ENUM),
 		timestampNumber: () => t.timestamp().asNumber(),
 		ulid: () => t.string(26),
-		// App-side ULID default. WARNING: with `createMany` on a table that
-		// ALSO has a `setOnCreate` column (e.g. `familyId`), orchid-orm 1.73 does
-		// NOT re-evaluate this runtime default per row — every row gets the same
-		// id and the insert fails with a duplicate-pkey error. So for BULK
-		// inserts always pass an explicit `id` per row. Single `create` and
-		// `createMany` on tables without a `setOnCreate` column are unaffected.
+		// App-side ULID default. Do NOT put a `setOnCreate` column on a table
+		// that uses this — see the note on `koshFamilyId` above.
 		ulidWithDefault: () => t.string(26).default(() => ulid()),
 		webhookStatusEnum: () => t.enum("webhook_status_enum", WEBHOOK_STATUS_ENUM),
 
