@@ -164,7 +164,9 @@ const AccountDividends = ({ accountId }: DividendsPanelProps) => {
 			label: dividend.state === "expected" ? D.act.different : D.act.changeAgain,
 			hint: D.act.differentHint,
 			icon: <IconEdit />,
-			onSelect: () => openChange(dividend),
+			// Once the menu has handed focus back to its button — so the dialog can take it,
+			// and return it there when it closes.
+			onSelect: () => window.setTimeout(() => openChange(dividend), 0),
 		};
 		const never: MenuAction = {
 			key: "never",
