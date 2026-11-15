@@ -1,3 +1,4 @@
+import { FeeEffectNote } from "@frontend/modules/money/components/FeeEffectNote";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Skeleton } from "@connected-repo/ui-mui/feedback/Skeleton";
 import { DivergingBar } from "@connected-repo/ui-mui/kosh/Bars";
@@ -127,6 +128,7 @@ const TableRow = ({ row, widest, onMore }: TableRowProps) => {
 				</Box>
 				<Box role="cell" sx={right}>
 					<Percent value={figures.xirr} sx={{ fontWeight: 700 }} />
+					<FeeEffectNote fees={figures.fees} form="short" />
 				</Box>
 				<Box role="cell" sx={right}>
 					<Percent value={figures.benchmarkXirr} />

@@ -51,6 +51,17 @@ export const MONEY = {
 	questionsWaiting: (count: number): string =>
 		count === 1 ? "1 question is waiting. Figures use the best guess until it’s answered." : `${count} questions are waiting. Figures use the best guess until they’re answered.`,
 
+	// A fund manager's fee paid from outside the account: every return is after it
+	fees: {
+		short: (before: string | null): string => (before ? `after fees · ${before} before` : "after fees"),
+		full: (total: string, before: string | null): string =>
+			before
+				? `After the fund manager’s fees (${total} so far). Before fees: ${before} a year.`
+				: `After the fund manager’s fees (${total} so far).`,
+		dividendsToConfirm: (count: number): string =>
+			count === 1 ? "1 dividend is counted on Kosh’s working and waits to be confirmed." : `${count} dividends are counted on Kosh’s working and wait to be confirmed.`,
+	},
+
 	loadFailed: "Couldn’t load these figures.",
 	retry: "Try again",
 } as const;

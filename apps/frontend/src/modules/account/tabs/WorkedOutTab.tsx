@@ -16,6 +16,7 @@ import { useReturns } from "@frontend/modules/money/money.queries";
 import { useScope } from "@frontend/modules/money/scope";
 import { type ReactNode, useMemo, useState } from "react";
 import type { AccountInfo } from "../account.types";
+import { FeePanel } from "../fees/FeePanel";
 import { formatRatio, trailRows } from "../account.utils";
 import { DataTable } from "../components/DataTable";
 import { PeriodRow } from "../components/PeriodRow";
@@ -402,6 +403,11 @@ export const WorkedOutTab = ({ info, phone }: { info: AccountInfo; phone: boolea
 						<TwrCard returns={data} />
 					</Box>
 					<RiskCard returns={data} />
+
+					{/* What the manager is paid from outside the account changes what the return means. */}
+					<Box id="fee" sx={{ scrollMarginTop: 96 }}>
+						<FeePanel accountId={info.account.id} />
+					</Box>
 
 					<Box>
 						<Typography variant="eyebrow" component="h2" sx={{ m: 0 }}>

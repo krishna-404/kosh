@@ -4,22 +4,25 @@ import { useMediaQuery, useTheme } from "@connected-repo/ui-mui/theme/useTheme";
 import { ACCOUNT } from "@frontend/copy/account.copy";
 import { useSearchParams } from "react-router";
 import type { AccountInfo } from "../account.types";
+import { DividendsPanel } from "../dividends/DividendsPanel";
 import { LedgerView } from "./cash/LedgerView";
 import { TradesView } from "./cash/TradesView";
 
-type View = "money" | "trades";
+type View = "money" | "trades" | "dividends";
 const VIEW_PARAM = "view";
 
 /**
  * Cash flows: the ledger as Kosh understood it — every line with what it
- * said and what Kosh took it to be — and, as a second view, the trades.
- * Which view is open lives in the address (`?tab=cash&view=trades`).
+ * said and what Kosh took it to be — then the trades, then the dividends
+ * (which never reach the ledger). Which view is open lives in the address
+ * (`?tab=cash&view=trades`).
  */
 export const CashFlowsTab = ({ info }: { info: AccountInfo }) => {
 	const theme = useTheme();
 	const phone = useMediaQuery(theme.breakpoints.down("md"));
 	const [params, setParams] = useSearchParams();
-	const view: View = params.get(VIEW_PARAM) === "trades" ? "trades" : "money";
+	const asked = params.get(VIEW_PARAM);
+	const view: View = asked === "trades" || asked === "dividends" ? asked : "money";
 	const setView = (next: View) =>
 		setParams(
 			(current) => {
@@ -42,10 +45,14 @@ export const CashFlowsTab = ({ info }: { info: AccountInfo }) => {
 					options={[
 						{ value: "money", label: ACCOUNT.cash.viewMoney },
 						{ value: "trades", label: ACCOUNT.cash.viewTrades },
+						// Dividends never reach the broker's ledger; they are worked out and confirmed here.
+						{ value: "dividends", label: ACCOUNT.cash.viewDividends },
 					]}
 				/>
 			</Box>
-			{view === "money" ? <LedgerView info={info} phone={phone} /> : <TradesView info={info} phone={phone} />}
+			{view === "money" && <LedgerView info={info} phone={phone} />}
+			{view === "trades" && <TradesView info={info} phone={phone} />}
+			{view === "dividends" && <DividendsPanel accountId={info.account.id} />}
 		</>
 	);
 };

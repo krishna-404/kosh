@@ -1,3 +1,4 @@
+import { FeeEffectNote } from "@frontend/modules/money/components/FeeEffectNote";
 import { formatMonth } from "@connected-repo/ui-mui/format/date";
 import { Money, Percent } from "@connected-repo/ui-mui/kosh/Money";
 import { SectionCard } from "@connected-repo/ui-mui/kosh/SectionCard";
@@ -65,7 +66,12 @@ export const ReturnStats = ({ returns }: { returns: Returns }) => {
 				<Stat
 					label={short ? ACCOUNT.growthSoFar : ACCOUNT.returnXirr}
 					value={<Percent value={rate} tone="auto" />}
-					hint={rate === null ? ACCOUNT.noRate : short ? ACCOUNT.growthFrom(since) : ACCOUNT.aYearFrom(since)}
+					hint={
+						<>
+							{rate === null ? ACCOUNT.noRate : short ? ACCOUNT.growthFrom(since) : ACCOUNT.aYearFrom(since)}
+							<FeeEffectNote fees={returns.fees} form="short" />
+						</>
+					}
 					sx={{ gridColumn: { xs: "1 / -1", md: "auto" }, order: { xs: 2, md: 0 } }}
 				/>
 			</Box>

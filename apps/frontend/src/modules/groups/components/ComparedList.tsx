@@ -1,3 +1,4 @@
+import { MONEY } from "@frontend/copy/money.copy";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Skeleton } from "@connected-repo/ui-mui/feedback/Skeleton";
 import { DivergingBar } from "@connected-repo/ui-mui/kosh/Bars";
@@ -70,6 +71,7 @@ const ListRow = ({ row, widest, onMore }: ListRowProps) => {
 				<Money value={ranked.value} notation="compact" sx={{ fontWeight: 700, color: "text.primary" }} />
 				{" · "}
 				<Percent value={ranked.xirr} sx={{ fontWeight: 700, color: "text.primary" }} /> {GROUPS.aYear}
+				{ranked.fees ? ` · ${MONEY.fees.short(null)}` : ""}
 				{" · "}
 				{GROUPS.niftyAt} <Percent value={ranked.benchmarkXirr} />
 				{" · "}

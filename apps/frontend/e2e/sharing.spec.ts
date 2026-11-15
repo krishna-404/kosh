@@ -1,5 +1,5 @@
-import type { Browser, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import { api, newPerson } from './people';
 
 /**
  * The sharing story, with two real sign-ins:
@@ -10,44 +10,6 @@ import { expect, test } from './fixtures';
  *
  * Each person is a fresh sign-in, so the test owns everything it looks at.
  */
-
-const API = process.env.VITE_API_URL ?? 'http://localhost:3001';
-
-/** Call the API as whoever is signed in on `page` — used for set-up only. */
-const api = <T,>(page: Page, path: string, input: unknown = {}): Promise<T> =>
-  page.evaluate(
-    async ([url, body]) => {
-      const response = await fetch(url as string, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json', 'x-csrf-token': 'orpc', authorization: 'Bearer token' },
-        body: JSON.stringify({ json: body }),
-      });
-      const parsed = await response.json();
-      if (!response.ok) throw new Error(`${url}: ${JSON.stringify(parsed).slice(0, 300)}`);
-      return parsed.json;
-    },
-    [`${API}/api/user-app/${path}`, input] as const,
-  );
-
-/** A brand-new person, signed in. Sign-ups are rate limited, so this waits its turn. */
-async function newPerson(browser: Browser) {
-  for (let attempt = 0; ; attempt++) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-    const page = await context.newPage();
-    await page.goto('/auth/login');
-    await page.getByRole('button', { name: /continue with google/i }).click();
-    try {
-      await page.waitForURL('**/overview', { timeout: 10_000 });
-      const { me } = await api<{ me: { name: string; email: string } }>(page, 'portfolio/directory');
-      return { context, page, ...me };
-    } catch (error) {
-      await context.close();
-      if (attempt >= 5) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 4_000));
-    }
-  }
-}
 
 test('an owner shares one account; the other person sees only that, until they are removed', async ({
   browser,

@@ -155,6 +155,14 @@ export const AboutAccount = ({ info }: { info: AccountInfo }) => {
 				<Fact label={ACCOUNT.broker}>{info.broker}</Fact>
 				<Fact label={ACCOUNT.lastStatement}>{lastStatementWords(account.updated)}</Fact>
 				{account.sharedBy && <Fact label={ACCOUNT.sharedWithYouBy}>{firstNameOf(account.sharedBy.name)}</Fact>}
+				{/* Said only when one is set, or when the reader is the one who could set it. */}
+				{(account.fee || account.myLevel === "owner") && (
+					<Fact label={ACCOUNT.managerFee}>
+						<TextLink component={Link} to={{ search: "?tab=worked-out", hash: "#fee" }}>
+							{account.fee ? ACCOUNT.managerFeeSee : ACCOUNT.managerFeeSet}
+						</TextLink>
+					</Fact>
+				)}
 			</Box>
 			{account.sharedBy && account.via === "holder" && (
 				<Typography variant="caption" component="p" sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 1.5, mb: 0 }}>

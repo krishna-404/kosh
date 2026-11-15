@@ -1,3 +1,4 @@
+import { FeeEffectNote } from "@frontend/modules/money/components/FeeEffectNote";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { formatDate, formatMonth } from "@connected-repo/ui-mui/format/date";
 import { Banner } from "@connected-repo/ui-mui/kosh/Banner";
@@ -107,6 +108,7 @@ export const OverviewHero = ({ returns, people, scopeLabel, phone, wide }: Overv
 						{rate === null ? OVERVIEW.notWorkedOut : short ? OVERVIEW.growthLower : MONEY.aYear}
 						{benchmarkPart}
 					</Typography>
+					<FeeEffectNote fees={returns.fees} form="short" />
 				</HeroCard>
 				{banner}
 			</>
@@ -137,7 +139,12 @@ export const OverviewHero = ({ returns, people, scopeLabel, phone, wide }: Overv
 			<Stat
 				label={short ? OVERVIEW.growthSoFar : OVERVIEW.yourReturn}
 				value={<Percent value={rate} tone={toneOf(rate)} />}
-				hint={rate === null ? OVERVIEW.notWorkedOut : short ? OVERVIEW.notYearly : MONEY.aYear}
+				hint={
+					<>
+						{rate === null ? OVERVIEW.notWorkedOut : short ? OVERVIEW.notYearly : MONEY.aYear}
+						<FeeEffectNote fees={returns.fees} form="short" />
+					</>
+				}
 			/>
 			{primary && (
 				<Stat
