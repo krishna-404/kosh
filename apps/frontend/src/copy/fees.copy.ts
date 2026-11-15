@@ -31,8 +31,11 @@ export const FEES = {
 		titleNow: "No fund manager’s fee is set for this account now",
 		/** The one thing people get wrong, said plainly. */
 		body: "A fee the broker takes inside the account is already in the statements, and already counted. Set this only when the manager or adviser is paid from outside the account — by bank transfer, say.",
-		stopped: (date: string): string =>
-			`The last one stopped after ${date}. What it came to is still counted in the return.`,
+		/** `charged`: it came to something, which stays counted. */
+		stopped: (date: string, charged: boolean): string =>
+			charged
+				? `The last one stopped after ${date}. What it came to is still counted in the return.`
+				: `The last one stopped after ${date}.`,
 		set: "Set what the manager is paid",
 		ownerOnly: "Only an owner can set this.",
 	},

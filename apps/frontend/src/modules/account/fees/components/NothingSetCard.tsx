@@ -12,6 +12,8 @@ interface NothingSetCardProps {
 	canChange: boolean;
 	/** The last day an earlier arrangement was charged, when one has stopped. */
 	lastStopped: string | null;
+	/** Earlier arrangements came to something, which is still counted. */
+	charged: boolean;
 	onSet: () => void;
 }
 
@@ -20,7 +22,7 @@ interface NothingSetCardProps {
  * wrong — a fee the broker takes inside the account is already counted —
  * and gives an owner the way to set one. Anyone else is told who can.
  */
-export const NothingSetCard = ({ canChange, lastStopped, onSet }: NothingSetCardProps) => (
+export const NothingSetCard = ({ canChange, lastStopped, charged, onSet }: NothingSetCardProps) => (
 	<SectionCard>
 		<Box
 			sx={{
@@ -38,7 +40,7 @@ export const NothingSetCard = ({ canChange, lastStopped, onSet }: NothingSetCard
 				<Typography variant="h3" component="h2">
 					{lastStopped ? FEES.none.titleNow : FEES.none.title}
 				</Typography>
-				{lastStopped && <Typography variant="body2">{FEES.none.stopped(formatDate(lastStopped))}</Typography>}
+				{lastStopped && <Typography variant="body2">{FEES.none.stopped(formatDate(lastStopped), charged)}</Typography>}
 				<Typography variant="body2" sx={{ maxWidth: 620 }}>
 					{FEES.none.body}
 				</Typography>

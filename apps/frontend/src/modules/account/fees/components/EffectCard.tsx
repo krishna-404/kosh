@@ -62,7 +62,9 @@ export const EffectCard = ({
 				<Stat
 					label={FEES.effect.total}
 					value={<Money value={overview.total} />}
-					hint={allInvoiced ? FEES.effect.payments(charged) : FEES.effect.charges(charged)}
+					hint={
+						charged === 0 ? undefined : allInvoiced ? FEES.effect.payments(charged) : FEES.effect.charges(charged)
+					}
 					sx={{ alignSelf: "center" }}
 				/>
 

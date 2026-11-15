@@ -129,7 +129,12 @@ export const FeePanel = ({ accountId }: FeePanelProps) => {
 								}}
 							/>
 						) : (
-							<NothingSetCard canChange={canChange} lastStopped={lastStopped} onSet={() => setDialog("set")} />
+							<NothingSetCard
+								canChange={canChange}
+								lastStopped={lastStopped}
+								charged={data.charges.length > 0}
+								onSet={() => setDialog("set")}
+							/>
 						)}
 					</Box>
 					{showEffect && (
