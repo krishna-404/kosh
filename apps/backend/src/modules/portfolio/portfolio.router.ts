@@ -28,11 +28,25 @@ const created = z.object({ id: z.string() });
 // ─── Holders ────────────────────────────────────────────────────────────
 
 // Whoever adds a holder owns it (and so every account it will ever have).
+// A family has a handful of people and a few accounts each. These ceilings
+// are far above that; they exist so one login cannot make every page of the
+// app — which works account by account — do unbounded work.
+const MAX_PEOPLE = 100;
+const MAX_ACCOUNTS = 300;
+const MAX_GROUPS = 100;
+const tooMany = (what: string, max: number) =>
+	new ORPCError("BAD_REQUEST", {
+		status: 400,
+		message: `That is more ${what} than Kosh keeps for one login (${max}).`,
+		data: { code: "TOO_MANY" },
+	});
+
 const createPerson = rpcPortfolioProcedure
 	.input(personCreateZod)
 	.output(created)
-	.handler(({ input, context: { user } }) =>
-		db.$transaction(async () => {
+	.handler(({ input, context: { user } }) => {
+		if (requireAccess().personLevels.size >= MAX_PEOPLE) throw tooMany("people", MAX_PEOPLE);
+		return db.$transaction(async () => {
 			const person = await db.persons.create({
 				displayName: input.displayName,
 				kind: input.kind,
@@ -46,8 +60,8 @@ const createPerson = rpcPortfolioProcedure
 				seenAt: Date.now(),
 			});
 			return { id: person.id };
-		}),
-	);
+		});
+	});
 
 // Rename a holder, change what kind it is, or say "this is me". Owners only.
 const updatePerson = rpcPortfolioProcedure
@@ -59,13 +73,15 @@ const updatePerson = rpcPortfolioProcedure
 		// "This is me" can be set to the caller or cleared by the caller — one
 		// owner cannot point a holder at another login, or unlink someone else.
 		if (
-			input.isMe === false &&
+			input.isMe !== undefined &&
 			current.linkedUserId !== null &&
 			current.linkedUserId !== user.id
 		)
 			throw new ORPCError("FORBIDDEN", {
 				status: 403,
-				message: "Only the person this is can unlink themselves",
+				message: input.isMe
+					? "This is already someone else — only they can change that"
+					: "Only the person this is can unlink themselves",
 			});
 		await db.persons.where({ id: input.personId }).update({
 			...(input.displayName !== undefined ? { displayName: input.displayName } : {}),
@@ -85,6 +101,7 @@ const createAccount = rpcPortfolioProcedure
 	.output(created)
 	.handler(async ({ input, context: { user } }) => {
 		requirePersonLevel(input.personId, "owner");
+		if (requireAccess().accountLevels.size >= MAX_ACCOUNTS) throw tooMany("accounts", MAX_ACCOUNTS);
 		const account = await db.brokerAccounts.create({
 			personId: input.personId,
 			broker: input.broker,
@@ -142,8 +159,9 @@ async function replaceMembers(groupId: string, accountIds: string[]) {
 const createGroup = rpcPortfolioProcedure
 	.input(groupCreateZod)
 	.output(created)
-	.handler(({ input, context: { user } }) => {
+	.handler(async ({ input, context: { user } }) => {
 		assertVisible(input.accountIds);
+		if ((await db.accountGroups.count()) >= MAX_GROUPS) throw tooMany("groups", MAX_GROUPS);
 		return db.$transaction(async () => {
 			const group = await db.accountGroups.create({
 				name: input.name,

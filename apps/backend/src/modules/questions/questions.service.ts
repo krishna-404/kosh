@@ -258,6 +258,20 @@ export async function changeLine(input: { cashFlowId: string; answer?: LineAnswe
 	requireAccountLevel(flow.accountId, "edit");
 	if (input.answer !== undefined && flow.origin !== "ledger_line")
 		throw bad("This entry stands for the balance the account started with. Remove it instead.");
+	// A pairing with another account stands on this entry. Pairing and
+	// un-pairing need edit on both accounts, so this must too.
+	const paired = await db.transferLinks
+		.unscope("default")
+		.where({ isLive: true, OR: [{ outFlowId: flow.id }, { inFlowId: flow.id }] })
+		.select("outAccountId", "inAccountId");
+	for (const link of paired) {
+		const other = link.outAccountId === flow.accountId ? link.inAccountId : link.outAccountId;
+		if (!atLeast(requireAccess().accountLevels.get(other), "edit"))
+			throw new ORPCError("FORBIDDEN", {
+				status: 403,
+				message: "This is paired with money in another account. Someone who can edit both has to un-pair it first.",
+			});
+	}
 
 	return db.$transaction(async () => {
 		const retraction = await db.events.create({

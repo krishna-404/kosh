@@ -126,6 +126,10 @@ export function parseZerodhaTradebook(
 			fail("missing_field", "Empty trade_id");
 			return;
 		}
+		if (col(record, "symbol").length > 32) {
+			fail("bad_enum", "The symbol is too long to be a share's symbol");
+			return;
+		}
 
 		const exchange: Exchange =
 			exchangeRaw === "NSE" || exchangeRaw === "BSE" ? exchangeRaw : "other";

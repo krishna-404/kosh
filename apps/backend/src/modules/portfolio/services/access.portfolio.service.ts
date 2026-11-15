@@ -510,7 +510,7 @@ export async function grantAccess(input: {
 	target: AccessTarget;
 	email: string;
 	level: AccessLevel;
-}): Promise<{ grantId: string; pending: boolean; inviteToken: string | null }> {
+}): Promise<{ grantId: string; pending: boolean; inviteToken: string | null; unchanged: boolean }> {
 	requireOwnerOf(input.target);
 	const { userId: me } = requireAccess();
 	const email = input.email.trim().toLowerCase();
@@ -564,7 +564,7 @@ export async function grantAccess(input: {
 		if (existing) {
 			const sameLevel = existing.level === input.level;
 			if (sameLevel && !isExpired(existing, now))
-				return { grantId: existing.id, pending: !user, inviteToken: null };
+				return { grantId: existing.id, pending: !user, inviteToken: null, unchanged: true };
 			if (!sameLevel) await assertNotLastOwner(existing);
 			await endGrant(
 				existing.id,
@@ -585,7 +585,7 @@ export async function grantAccess(input: {
 			// A changed level is not news; a first share is.
 			seenAt: existing ? now : null,
 		});
-		return { grantId: created.id, pending: !user, inviteToken };
+		return { grantId: created.id, pending: !user, inviteToken, unchanged: false };
 	});
 }
 

@@ -196,8 +196,11 @@ async function applyBhavcopies(today: string, report: SyncReport): Promise<void>
 		.whereSql`"tracked_since" IS NOT NULL AND "isin" IS NOT NULL AND ("price_source" IS NULL OR "price_source" = 'nse')`
 		.select("id", "isin", "priceSource", "trackedSince", "pricedThrough", "name", "symbolCanonical");
 	if (instruments.length === 0) return;
-	// A statement names a share only by its symbol; the price file knows the company.
-	const named = new Map<string, string>();
+	// A statement's word for a share is only a hint — and the first statement
+	// to mention a share is whoever uploaded it. The exchange's own file says
+	// what the ISIN is called and which company it is; that replaces the hint,
+	// so announcements are never fetched under a symbol an upload made up.
+	const named = new Map<string, { symbol: string; name: string | null }>();
 
 	const from = instruments.map((i) => i.trackedSince as string).sort()[0] as string;
 	const held = await db.providerPayloads
@@ -235,9 +238,12 @@ async function applyBhavcopies(today: string, report: SyncReport): Promise<void>
 				const rows = parseBhavcopy(file.content);
 				closes = new Map(rows.map((row) => [row.isin, row.close]));
 				for (const i of instruments) {
-					if (i.name !== i.symbolCanonical || named.has(i.id)) continue;
-					const row = rows.find((r) => r.isin === i.isin && r.name);
-					if (row?.name) named.set(i.id, companyName(row.name));
+					if (named.get(i.id)?.name) continue;
+					const row = rows.find((r) => r.isin === i.isin);
+					if (!row?.symbol) continue;
+					// Keep a name someone gave it; replace one that was only ever the symbol.
+					const plain = i.name === i.symbolCanonical || i.name === row.symbol;
+					named.set(i.id, { symbol: row.symbol, name: plain && row.name ? companyName(row.name) : null });
 				}
 			} catch (error) {
 				report.problems.push(`Could not read the bhavcopy for ${file.key}: ${error}`);
@@ -279,7 +285,13 @@ async function applyBhavcopies(today: string, report: SyncReport): Promise<void>
 		report.barsWritten += await insertBars(bars);
 	}
 
-	for (const [id, name] of named) await db.instruments.where({ id }).update({ name });
+	for (const i of instruments) {
+		const exchange = named.get(i.id);
+		if (!exchange) continue;
+		const name = exchange.name ?? (i.name === i.symbolCanonical ? exchange.symbol : i.name);
+		if (exchange.symbol !== i.symbolCanonical || name !== i.name)
+			await db.instruments.where({ id: i.id }).update({ symbolCanonical: exchange.symbol, name });
+	}
 
 	for (const i of instruments) {
 		// Move the frontier to the last day before the first one not fetched yet.
@@ -442,6 +454,32 @@ let background: Promise<void> | null = null;
  * Start a sync without waiting for it, and keep going until nothing is left
  * to fetch (or it cannot go on). One at a time per process.
  */
+/**
+ * Ask for a sync from inside a request.
+ *
+ * A request must not start the sync itself: Node carries the request's
+ * async context — including the database transaction an upload runs in —
+ * into anything the request schedules, so a sync started from there would
+ * later run its queries on a connection that transaction has already given
+ * back. Instead the request only raises this flag, and a timer created at
+ * server start (`watchForSyncRequests`, with no request around it) notices.
+ */
+let syncWanted = false;
+export function requestMarketSync(): void {
+	syncWanted = true;
+}
+
+/** Started once, at boot, outside any request. Returns how to stop it. */
+export function watchForSyncRequests(everyMs = 2000): () => void {
+	const timer = setInterval(() => {
+		if (!syncWanted) return;
+		syncWanted = false;
+		kickMarketSync();
+	}, everyMs);
+	timer.unref();
+	return () => clearInterval(timer);
+}
+
 export function kickMarketSync(): void {
 	if (background) return;
 	background = (async () => {

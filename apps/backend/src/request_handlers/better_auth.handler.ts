@@ -40,7 +40,8 @@ export const betterAuthHandler = {
 				res.end(
 					JSON.stringify({
 						error: "Internal Auth Error",
-						message: err instanceof Error ? err.message : String(err),
+						// The detail is in the server's log and error tracking, not in the reply.
+						message: "Something went wrong while signing in. Try again.",
 					}),
 				);
 			}

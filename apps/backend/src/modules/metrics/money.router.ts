@@ -1,6 +1,6 @@
 import { db } from "@backend/db/db";
 import { getMarketState } from "@backend/modules/market-data/services/prices.market.service";
-import { kickMarketSync } from "@backend/modules/market-data/services/sync.market.service";
+import { requestMarketSync } from "@backend/modules/market-data/services/sync.market.service";
 import { getGroupsCompared, getWhatIf } from "@backend/modules/metrics/services/groups.metrics.service";
 import { getHoldings, getScript } from "@backend/modules/metrics/services/holdings.metrics.service";
 import { marketSyncEnabled } from "@backend/modules/metrics/services/ledger_changed";
@@ -66,14 +66,18 @@ const market = rpcPortfolioProcedure.output(marketStatusZod).handler(async () =>
 		WHERE i.priced_through IS NULL AND i.slug IS NULL
 			AND EXISTS (SELECT 1 FROM trades t WHERE t.instrument_id = i.id AND t.is_live)`;
 	const loading = Number(waiting.rows[0]?.n ?? 0) > 0;
-	if (loading && marketSyncEnabled()) kickMarketSync();
+	if (loading && marketSyncEnabled()) requestMarketSync();
 	return {
 		pricesAsOf: newest?.barDate ?? null,
 		lastSyncAt: state.lastSyncAt,
-		note: state.lastSyncNote,
-		trouble: state.lastSyncOk ? null : state.lastSyncNote,
+		// The detail of a failed fetch (addresses, symbols, error text) is for
+		// the server's log; people are told only that it did not finish.
+		note: state.lastSyncOk ? state.lastSyncNote : null,
+		trouble: state.lastSyncOk ? null : SYNC_TROUBLE,
 		loading,
 	};
 });
+
+const SYNC_TROUBLE = "Kosh couldn’t reach the exchange or the fund-price service on its last try";
 
 export const moneyRouter = { returns, holdings, script, groups, whatIf, market };

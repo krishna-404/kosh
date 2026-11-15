@@ -1,5 +1,6 @@
 import { db } from "@backend/db/db";
 import { importsRouter } from "@backend/modules/imports/imports.router";
+import { moneyRouter } from "@backend/modules/metrics/money.router";
 import { portfolioRouter } from "@backend/modules/portfolio/portfolio.router";
 import { defaultContext } from "@backend/test/setup";
 import { createRouterClient } from "@orpc/server";
@@ -280,14 +281,29 @@ describe("Market data", () => {
 		}
 	});
 
-	it("knows a share by a newer ISIN first seen in a statement", async () => {
+	it("takes a statement's newer ISIN as the same share — without letting the statement rename it", async () => {
 		const NEXT = "INE001A01029";
 		await upload("later.csv", tradebook([`ALPHAX,${NEXT},2024-07-09,NSE,EQ,EQ,buy,false,5,21,T8,O8,2024-07-09T10:00:00`]));
+		// One share still, and it keeps the number the exchange knows it by until the exchange says otherwise.
 		const instrument = await db.instruments.where({ symbolCanonical: "ALPHAX" }).select("id", "isin");
-		expect(instrument).toEqual([{ id: expect.any(String), isin: NEXT }]);
+		expect(instrument).toEqual([{ id: expect.any(String), isin: ALPHAX }]);
+		expect(await db.trades.where({ instrumentId: instrument[0]?.id }).count()).toBe(2);
+		expect(await db.instrumentAliases.where({ aliasKind: "old_isin" }).count()).toBe(0);
 		// A fund's ISIN is never matched this way.
 		await upload("fund.csv", tradebook([`OTHERFUND,INF000F01027,2024-07-09,NSE,MF,MF,buy,false,5,21,T9,O9,2024-07-09T10:00:00`]));
 		expect(await db.instruments.where({ isin: { in: [FUND, "INF000F01027"] } }).count()).toBe(2);
+	});
+
+	it("calls a share what the exchange calls it, whatever the first statement said", async () => {
+		// Someone's statement gave BETAX's ISIN under another company's symbol.
+		await upload("odd.csv", tradebook([`ALPHAX,${BETAX},2024-07-05,NSE,EQ,EQ,buy,false,1,200,T7,O7,2024-07-05T10:00:00`]));
+		expect(await db.instruments.where({ isin: BETAX }).get("symbolCanonical")).toBe("ALPHAX");
+		await syncMarketData({ today: "2024-07-10" });
+		// The exchange's file for that ISIN says BETAX: announcements will be asked for under that.
+		expect(await db.instruments.where({ isin: BETAX }).select("symbolCanonical", "name").take()).toEqual({
+			symbolCanonical: "BETAX",
+			name: "Betax Ltd",
+		});
 	});
 
 	it("stops and says so when the exchange refuses, keeping nothing it was not given", async () => {
@@ -297,6 +313,10 @@ describe("Market data", () => {
 		expect(await db.providerPayloads.count()).toBe(0);
 		expect(await db.marketState.where({ id: 1 }).get("lastSyncNote")).toMatch(/403/);
 		expect(await db.marketState.where({ id: 1 }).get("lastSyncOk")).toBe(false);
+		// People are told that it did not finish — not the addresses and error text, which stay in the log.
+		const status = await createRouterClient(moneyRouter, { context: defaultContext as NonNullable<typeof defaultContext> }).market();
+		expect(status.trouble).toMatch(/couldn’t reach the exchange/);
+		expect(JSON.stringify(status)).not.toMatch(/403|nsearchives/);
 		// Nothing is marked as a holiday on the strength of a refusal.
 		refuse = false;
 		expect((await syncMarketData({ today: "2024-07-10" })).daysFetched).toBe(3);

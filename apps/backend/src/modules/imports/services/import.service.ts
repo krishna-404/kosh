@@ -1,5 +1,6 @@
 import { db } from "@backend/db/db";
 import { findInstrumentsByIsin } from "@backend/modules/instruments/services/isin.instruments.service";
+import { addDays, todayInIndia } from "@backend/modules/metrics/services/dates.metrics";
 import { onLedgerChanged } from "@backend/modules/metrics/services/ledger_changed";
 import {
 	atLeast,
@@ -52,6 +53,8 @@ import {
 // makes of them in one transaction, or nothing at all. Undoing an upload is
 // an event — rows are marked not live, never deleted.
 
+/** Nothing a broker's statement holds is older than this. */
+const EARLIEST_DATE = "1990-01-01";
 const PREVIEW_ROWS = 200;
 const PREVIEW_ERRORS = 50;
 const CHUNK = 400;
@@ -576,6 +579,17 @@ async function analyse(input: StatementUpload): Promise<Analysed> {
 	}
 
 	let problem = analysis.problem;
+	// A date centuries off — a typo, or not a typo — would have every figure
+	// worked out day by day from then, and prices asked for from then.
+	const tomorrow = addDays(todayInIndia(), 1);
+	if (!problem && analysis.span && (analysis.span.from < EARLIEST_DATE || analysis.span.to > tomorrow))
+		problem = {
+			code: "has_errors",
+			message:
+				analysis.span.from < EARLIEST_DATE
+					? `This file has a line dated ${analysis.span.from}. Kosh takes dates from 1990 onwards — check the dates and upload it again.`
+					: `This file has a line dated ${analysis.span.to}, which hasn’t come yet. Check the dates and upload it again.`,
+		};
 	if (!problem && analysis.errors.length > 0)
 		problem = {
 			code: "has_errors",

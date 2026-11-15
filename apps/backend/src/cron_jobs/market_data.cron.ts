@@ -1,9 +1,10 @@
-import { kickMarketSync } from "@backend/modules/market-data/services/sync.market.service";
+import { kickMarketSync, watchForSyncRequests } from "@backend/modules/market-data/services/sync.market.service";
 import { marketSyncEnabled } from "@backend/modules/metrics/services/ledger_changed";
 import { logger } from "@backend/utils/logger.utils";
 import cron, { type ScheduledTask } from "node-cron";
 
 let tasks: ScheduledTask[] = [];
+let stopWatching: (() => void) | null = null;
 
 /**
  * Keep prices up to date without anyone asking.
@@ -26,6 +27,9 @@ export function startMarketDataCron(): void {
 		cron.schedule("10 14 * * 1-5", kickMarketSync),
 		cron.schedule("40 18 * * *", kickMarketSync),
 	];
+	// Requests (an upload, a page that finds prices missing) only ask for a
+	// sync; this notices and starts it, from outside any request.
+	stopWatching = watchForSyncRequests();
 	// Catch up on whatever was missed while the server was down.
 	setTimeout(kickMarketSync, 20_000).unref();
 }
@@ -33,4 +37,6 @@ export function startMarketDataCron(): void {
 export function stopMarketDataCron(): void {
 	for (const task of tasks) task.stop();
 	tasks = [];
+	stopWatching?.();
+	stopWatching = null;
 }

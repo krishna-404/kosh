@@ -511,5 +511,5 @@ export async function getReturns(scopeInput: Scope, period: Period): Promise<Ret
 async function marketNote(): Promise<string[]> {
 	const state = await getMarketState();
 	// Only worth saying when the last fetch could not finish.
-	return !state.lastSyncOk && state.lastSyncNote ? [`Prices: ${state.lastSyncNote}.`] : [];
+	return state.lastSyncOk ? [] : ["Prices: the last fetch could not finish, so the newest prices may be missing."];
 }

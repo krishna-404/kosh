@@ -239,13 +239,9 @@ export function orpcErrorParser(
 			message: msg,
 			userFriendlyMessage: msg,
 			actionRequired: "Use a different value or update the existing resource",
-			details: {
-				constraint: pg.constraint,
-				table: pg.table,
-				column,
-				value,
-				fieldErrors,
-			},
+			// Which field clashed is useful to a form; the table, constraint and
+			// value are the database's business and stay in the server's log.
+			details: { fieldErrors },
 			fingerprint: [
 				"pg_unique",
 				pg.table ?? "unknown",
@@ -262,7 +258,7 @@ export function orpcErrorParser(
 			httpStatus: 400,
 			message: "Invalid reference to related resource",
 			userFriendlyMessage: "The referenced resource does not exist",
-			details: { constraint: pg.constraint ?? "foreign_key", table: pg.table },
+
 			fingerprint: [
 				"pg_fk",
 				pg.table ?? "unknown",

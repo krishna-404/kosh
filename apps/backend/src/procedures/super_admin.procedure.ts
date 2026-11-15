@@ -40,7 +40,8 @@ const superAdminPhones = parseList(env.SUPER_ADMIN_PHONE_NUMBERS, normalizePhone
  */
 export const rpcSuperAdminProcedure = rpcProtectedProcedure
 	.use(({ context, next }) => {
-		const email = context.user.email?.toLowerCase();
+		// An address counts only once its owner has proved it is theirs.
+		const email = context.user.emailVerified ? context.user.email?.toLowerCase() : undefined;
 		const phone = normalizePhone(context.user.phoneNumber ?? "");
 
 		const allowed =

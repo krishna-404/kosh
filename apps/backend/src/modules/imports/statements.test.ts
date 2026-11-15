@@ -8,6 +8,7 @@ import { questionsRouter } from "@backend/modules/questions/questions.router";
 import { defaultContext } from "@backend/test/setup";
 import { createUserAndLogin } from "@backend/test/utils/user-auth.utils";
 import { createRouterClient } from "@orpc/server";
+import { zipSync } from "fflate";
 import { beforeEach, describe, expect, it } from "vitest";
 
 // Statements in, ledger out. These tests drive the real routers the way the
@@ -188,6 +189,38 @@ describe("Statements", () => {
 			const bad = await anil.imports.preview(file(groww, "trades.csv", TRADES.replace("17/09/2024", "someday")));
 			expect(bad.errors).toEqual([expect.objectContaining({ row: 3, message: expect.stringContaining("Can’t read the date") })]);
 			expect(bad.canApply).toBe(false);
+		});
+	});
+
+	describe("files that are not what a statement looks like", () => {
+		const trades = (date: string) =>
+			[TRADEBOOK_HEADER, `ALPHAX,INE001A01011,${date},NSE,EQ,EQ,buy,false,1,100,TX1,OX1,${date}T10:00:00`].join("\n");
+
+		it("refuses a date centuries off, or one that has not come — nothing is worked out from then", async () => {
+			const ancient = await anil.imports.preview(file(zerodha, "old.csv", trades("0100-01-01")));
+			expect(ancient).toMatchObject({ canApply: false, problem: { code: "has_errors" } });
+			expect(ancient.problem?.message).toMatch(/from 1990 onwards/);
+			await expect(anil.imports.apply(file(zerodha, "old.csv", trades("0100-01-01")))).rejects.toThrow();
+
+			const future = await anil.imports.preview(file(zerodha, "future.csv", trades("2999-01-01")));
+			expect(future.problem?.message).toMatch(/hasn’t come yet/);
+			expect(await db.instruments.where({ isin: "INE001A01011" }).count()).toBe(0);
+		});
+
+		it("refuses a file far larger than any statement, before reading it", async () => {
+			const endless = await anil.imports.preview(file(zerodha, "huge.csv", `${TRADEBOOK_HEADER}\n${"\n".repeat(200_001)}`));
+			expect(endless).toMatchObject({ canApply: false, problem: { code: "unreadable" } });
+			expect(endless.problem?.message).toMatch(/far larger than any statement/);
+
+			// A spreadsheet is a zip: one with thousands of entries is turned away from its directory alone.
+			const entries: Record<string, Uint8Array> = {};
+			for (let i = 0; i < 2100; i++) entries[`xl/worksheets/sheet${i}.xml`] = new Uint8Array(1);
+			const packed = await anil.imports.preview({
+				accountId: zerodha,
+				fileName: "packed.xlsx",
+				contentBase64: Buffer.from(zipSync(entries)).toString("base64"),
+			});
+			expect(packed.problem?.message).toMatch(/far larger than any statement/);
 		});
 	});
 
@@ -575,6 +608,13 @@ describe("Statements", () => {
 			expect(anilsRow?.transfer).toEqual({ linkId, otherAccount: { id: sunitaZerodha, label: "Sunita Zerodha" } });
 			const sunitasRow = (await sunita.ledger.cashFlows({ accountId: sunitaZerodha })).rows[0];
 			expect(sunitasRow?.transfer).toEqual({ linkId, otherAccount: null });
+
+			// Sunita can edit her own side only. Changing her line would undo a pairing that
+			// also belongs to Anil's account — which she cannot edit — so it is refused.
+			await expect(
+				sunita.questions.changeLedgerLine({ cashFlowId: suggested.in.flowId, answer: "external_deposit" }),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+			expect((await anil.ledger.cashFlows({ accountId: zerodha })).rows.find((r) => r.amount === "-4000.00")?.transfer?.linkId).toBe(linkId);
 
 			// Taken back, the question returns; refused, it stays away.
 			await anil.questions.undoTransfer({ linkId });

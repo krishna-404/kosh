@@ -556,6 +556,11 @@ describe("Account access", () => {
 			await expect(
 				sunita.portfolio.updatePerson({ personId: holderId, isMe: false }),
 			).rejects.toMatchObject({ code: "FORBIDDEN" });
+			// …nor that the holder is herself instead.
+			await expect(
+				sunita.portfolio.updatePerson({ personId: holderId, isMe: true }),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+			expect((await anil.portfolio.directory()).holders.find((h) => h.id === holderId)?.isMe).toBe(true);
 			expect(await holderNames(anil)).toEqual(["Anil Mehta"]);
 		});
 	});

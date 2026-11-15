@@ -54,8 +54,14 @@ export async function adoptIsin(
 
 /**
  * The instrument behind each ISIN: by its own number, by one it used to
- * have, or — for a number not seen before — by its share line, which is
- * then remembered. ISINs nothing is known about are left out.
+ * have, or — for a number not seen before — by its share line. ISINs nothing
+ * is known about are left out.
+ *
+ * This only LOOKS: it never writes. Instruments are shared by every family,
+ * and the ISINs handed to this function come from uploaded statements — so
+ * what a statement says must not change what a share is for anyone else.
+ * Only the price sync, on seeing a new number in the exchange's own file,
+ * records it (`adoptIsin`).
  */
 export async function findInstrumentsByIsin(isins: string[]): Promise<Map<string, string>> {
 	const found = new Map<string, string>();
@@ -83,10 +89,7 @@ export async function findInstrumentsByIsin(isins: string[]): Promise<Map<string
 		if (!line) continue;
 		const matches = sameLine.filter((i) => (i.isin as string).startsWith(line));
 		// Two instruments on one line would be a surprise; guess at neither.
-		const match = matches.length === 1 ? matches[0] : undefined;
-		if (!match) continue;
-		match.isin = await adoptIsin(match, isin);
-		found.set(isin, match.id);
+		if (matches.length === 1) found.set(isin, (matches[0] as { id: string }).id);
 	}
 	return found;
 }

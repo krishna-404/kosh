@@ -1,7 +1,7 @@
 import { env } from "@backend/configs/env.config";
 import { settleActions } from "@backend/modules/corporate-actions/services/corporate_actions.service";
 import { settleDividends } from "@backend/modules/dividends/services/dividends.service";
-import { kickMarketSync } from "@backend/modules/market-data/services/sync.market.service";
+import { requestMarketSync } from "@backend/modules/market-data/services/sync.market.service";
 import { bumpLedger } from "./series.metrics.service";
 
 /** Prices are fetched everywhere except in tests, unless the setting says otherwise. */
@@ -18,7 +18,8 @@ export async function onLedgerChanged(accountId: string): Promise<void> {
 	await settleActions(accountId);
 	// Dividends due on what it holds, now that the holdings are right.
 	await settleDividends(accountId);
-	// After the response, outside the transaction: new instruments are only
-	// visible to the sync once this change has been committed.
-	if (marketSyncEnabled()) setTimeout(kickMarketSync, 1500);
+	// Only a request for one: the sync itself is started by a timer that lives
+	// outside this request and its transaction (see `requestMarketSync`), and
+	// by then this change has been committed and the new instruments are visible.
+	if (marketSyncEnabled()) requestMarketSync();
 }

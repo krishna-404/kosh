@@ -1,5 +1,6 @@
 import { parseCsv } from "@connected-repo/broker-parsers/csv";
 import type { Sheet } from "@connected-repo/broker-parsers/table";
+import { unzipSync } from "fflate";
 import readXlsxFile from "read-excel-file/node";
 
 /**
@@ -34,6 +35,31 @@ const cellText = (value: unknown): string => {
 	return String(value).trim();
 };
 
+// A statement is a few thousand lines. These limits are far above any real
+// one and far below what would hurt the server.
+const MAX_UNPACKED_BYTES = 150 * 1024 * 1024;
+const MAX_ZIP_ENTRIES = 2000;
+const MAX_ROWS = 200_000;
+const TOO_BIG = "This file is far larger than any statement Kosh reads. Upload one statement at a time.";
+
+/**
+ * A spreadsheet is a zip. Before anything is unpacked, add up what its own
+ * directory says it holds: a small file that claims to unpack to gigabytes
+ * is refused here, not after it has filled the memory.
+ */
+function refuseOversizedZip(bytes: Buffer): void {
+	let total = 0;
+	let entries = 0;
+	unzipSync(bytes, {
+		filter: (file) => {
+			total += file.originalSize;
+			entries += 1;
+			if (total > MAX_UNPACKED_BYTES || entries > MAX_ZIP_ENTRIES) throw new UnreadableStatementError(TOO_BIG);
+			return false; // look only; unpack nothing
+		},
+	});
+}
+
 export async function readStatement(bytes: Buffer): Promise<ReadStatement> {
 	if (bytes.length === 0) throw new UnreadableStatementError("This file is empty.");
 	if (isLegacyXls(bytes))
@@ -43,7 +69,16 @@ export async function readStatement(bytes: Buffer): Promise<ReadStatement> {
 
 	if (isZip(bytes)) {
 		try {
+			refuseOversizedZip(bytes);
+		} catch (error) {
+			if (error instanceof UnreadableStatementError) throw error;
+			throw new UnreadableStatementError(
+				"Kosh couldn’t open this spreadsheet. If it is password-protected, remove the password and upload it again.",
+			);
+		}
+		try {
 			const workbook = await readXlsxFile(bytes);
+			if (workbook.reduce((rows, sheet) => rows + sheet.data.length, 0) > MAX_ROWS) throw new UnreadableStatementError(TOO_BIG);
 			return {
 				format: "xlsx",
 				text: null,
@@ -52,7 +87,8 @@ export async function readStatement(bytes: Buffer): Promise<ReadStatement> {
 					rows: sheet.data.map((row) => row.map(cellText)),
 				})),
 			};
-		} catch {
+		} catch (error) {
+			if (error instanceof UnreadableStatementError) throw error;
 			throw new UnreadableStatementError(
 				"Kosh couldn’t open this spreadsheet. If it is password-protected, remove the password and upload it again.",
 			);
@@ -68,6 +104,9 @@ export async function readStatement(bytes: Buffer): Promise<ReadStatement> {
 	const text = bytes.toString("utf8").replace(/^﻿/, "");
 	if (text.includes("\u0000"))
 		throw new UnreadableStatementError("Kosh reads .csv and .xlsx statements. This file is neither.");
+	// Counted before parsing, so an enormous file costs one pass over its bytes and no more.
+	let lines = 0;
+	for (let i = text.indexOf("\n"); i !== -1; i = text.indexOf("\n", i + 1)) if (++lines > MAX_ROWS) throw new UnreadableStatementError(TOO_BIG);
 	const csv = parseCsv(text);
 	return { format: "csv", text, sheets: [{ name: "csv", rows: [csv.header, ...csv.records] }] };
 }

@@ -113,6 +113,10 @@ export function parseTemplateTrades(table: Table): ParseResult<ZerodhaTrade, Zer
 			fail("missing_field", "The symbol is missing");
 			continue;
 		}
+		if (symbol.length > 32) {
+			fail("bad_enum", "The symbol is too long to be a share’s symbol");
+			continue;
+		}
 		if (isin !== "" && !isValidIsin(isin)) {
 			fail("bad_isin", `“${isin}” isn’t an ISIN (12 letters and digits, like INE009A01021)`);
 			continue;

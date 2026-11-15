@@ -45,21 +45,17 @@ export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware);
  * with a full-bucket burst up to 300). The purpose is to cap runaway clients
  * (infinite-loop bugs, malicious scripts), not to throttle real traffic.
  *
- * Cost per accepted request: one SELECT + one UPDATE against `rate_limits`.
+ * Cost per accepted request: one statement against `rate_limits`.
  * Rows are keyed by userId so there's exactly one row per active user, kept
  * hot in the Postgres buffer cache — an extra ~1ms per RPC under normal load.
  * The rate-limit gate runs BEFORE the handler's own DB reads and BEFORE input
  * validation, so a throttled request never touches the domain tables.
  */
 export const rpcPortfolioProcedure = rpcProtectedProcedure
-	.use(async ({ context, next }) => {
-		const access = await loadAccess(context.user);
-		return requestContext.run(access, () =>
-			next({ context: { ...context, access } }),
-		);
-	})
+	// First, so a request that is turned away has cost one statement and
+	// nothing else — not the access lookup, not the handler.
 	.use(
-		createRateLimitMiddleware<RpcPortfolioContext>({
+		createRateLimitMiddleware<RpcAuthenticatedContext>({
 			bucketFn: (ctx) => ({
 				key: `app:user:${ctx.user.id}`,
 				limit: 300,
@@ -67,4 +63,10 @@ export const rpcPortfolioProcedure = rpcProtectedProcedure
 			}),
 			label: "app",
 		}),
-	);
+	)
+	.use(async ({ context, next }) => {
+		const access = await loadAccess(context.user);
+		return requestContext.run(access, () =>
+			next({ context: { ...context, access } }),
+		);
+	});

@@ -5,7 +5,7 @@ import { logger } from "@backend/utils/logger.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
 import { zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
-import { createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, phoneNumber } from "better-auth/plugins";
 import { apple } from "better-auth/social-providers";
 import { generateAppleClientSecret } from "./lib/apple.lib";
@@ -80,6 +80,9 @@ async function getAppleClientSecret(): Promise<string | undefined> {
 // - Password management (change, set, reset)
 // - Email verification
 
+/** Password and phone sign-in: development and tests only, never where the public can reach. */
+const PASSWORD_SIGN_IN = env.NODE_ENV === "development" || env.NODE_ENV === "test";
+
 export const auth = betterAuth({
 	account: {
 		modelName: "accounts",
@@ -103,8 +106,13 @@ export const auth = betterAuth({
 	baseURL: env.VITE_API_URL,
 	basePath: "/api/auth",
 	database: orchidAdapter(db),
+	// People sign in to Kosh with Google. A password sign-up proves nothing
+	// about who owns the address — and a Google sign-in for the same address
+	// would later be linked onto it, handing whoever signed up first a login
+	// to someone else's shared accounts. So passwords exist only where no
+	// stranger can reach them: on a developer's machine and in tests.
 	emailAndPassword: {
-		enabled: true,
+		enabled: PASSWORD_SIGN_IN,
 	},
 	// Browser end-to-end tests sign in with a password, which never verifies an
 	// address — but sharing only works for verified addresses (as every real,
@@ -125,10 +133,13 @@ export const auth = betterAuth({
 		: {}),
 	plugins: [
 		bearer(),
+		// Phone sign-in has no SMS sender behind it, so where real people sign in
+		// it refuses outright. (The plugin stays registered for the fields it
+		// adds to a login; the code is never written to a log.)
 		phoneNumber({
-			sendOTP: async ({ phoneNumber, code }, _ctx) => {
-				logger.info({ phoneNumber, code }, "Sending phone number OTP");
-				// TODO: Implement actual SMS provider here
+			sendOTP: async ({ phoneNumber }, _ctx) => {
+				if (!PASSWORD_SIGN_IN) throw new APIError("BAD_REQUEST", { message: "Phone sign-in is not available." });
+				logger.info({ phoneNumber }, "Phone OTP requested (no SMS sender is configured)");
 			},
 			signUpOnVerification: {
 				getTempEmail: (phoneNumber) => `${phoneNumber}@temp-local.com`,

@@ -50,7 +50,8 @@ const grant = rpcPortfolioProcedure
 			email: input.email,
 			level: input.level,
 		});
-		notifyShared({ grantId: result.grantId, inviteToken: result.inviteToken, by: user });
+		// Sharing the same thing again is not news: nobody is written to twice for it.
+		if (!result.unchanged) notifyShared({ grantId: result.grantId, inviteToken: result.inviteToken, by: user });
 		return { grantId: result.grantId, pending: result.pending };
 	});
 
