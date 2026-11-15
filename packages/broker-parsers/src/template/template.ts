@@ -85,8 +85,8 @@ export function parseTemplateTrades(table: Table): ParseResult<ZerodhaTrade, Zer
 	const errors: RowError[] = [];
 	const seen = new Map<string, number>();
 
-	table.slice(header.rowIndex + 1).forEach((record, i) => {
-		if (isBlankRow(record)) return;
+	for (const [i, record] of table.slice(header.rowIndex + 1).entries()) {
+		if (isBlankRow(record)) continue;
 		const row = i + 1;
 		const fail = (code: RowError["code"], message: string): void => {
 			errors.push({ row, code, message });
@@ -101,12 +101,30 @@ export function parseTemplateTrades(table: Table): ParseResult<ZerodhaTrade, Zer
 		const exchangeRaw = cell(record, col("exchange")).toUpperCase();
 		const reference = cell(record, col("reference"));
 
-		if (tradeDate === null) return fail("bad_date", `Can’t read the date “${cell(record, col("date"))}” — write it like 2024-04-02 or 02-04-2024`);
-		if (!side) return fail("bad_enum", `Type must be buy or sell, not “${cell(record, col("type"))}”`);
-		if (symbol === "") return fail("missing_field", "The symbol is missing");
-		if (isin !== "" && !isValidIsin(isin)) return fail("bad_isin", `“${isin}” isn’t an ISIN (12 letters and digits, like INE009A01021)`);
-		if (quantity === null || quantity === "" || Number(quantity) <= 0) return fail("bad_number", `Can’t read the quantity “${cell(record, col("quantity"))}”`);
-		if (price === null || price === "" || Number(price) < 0) return fail("bad_number", `Can’t read the price “${cell(record, col("price"))}”`);
+		if (tradeDate === null) {
+			fail("bad_date", `Can’t read the date “${cell(record, col("date"))}” — write it like 2024-04-02 or 02-04-2024`);
+			continue;
+		}
+		if (!side) {
+			fail("bad_enum", `Type must be buy or sell, not “${cell(record, col("type"))}”`);
+			continue;
+		}
+		if (symbol === "") {
+			fail("missing_field", "The symbol is missing");
+			continue;
+		}
+		if (isin !== "" && !isValidIsin(isin)) {
+			fail("bad_isin", `“${isin}” isn’t an ISIN (12 letters and digits, like INE009A01021)`);
+			continue;
+		}
+		if (quantity === null || quantity === "" || Number(quantity) <= 0) {
+			fail("bad_number", `Can’t read the quantity “${cell(record, col("quantity"))}”`);
+			continue;
+		}
+		if (price === null || price === "" || Number(price) < 0) {
+			fail("bad_number", `Can’t read the price “${cell(record, col("price"))}”`);
+			continue;
+		}
 
 		// Two identical fills on one day are two trades: the second gets a different id.
 		const key = `${tradeDate}|${symbol}|${isin}|${side}|${quantity}|${price}`;
@@ -129,7 +147,7 @@ export function parseTemplateTrades(table: Table): ParseResult<ZerodhaTrade, Zer
 			brokerOrderId: id,
 			executedAt: null,
 		});
-	});
+	}
 
 	const dates = rows.map((r) => r.tradeDate).sort();
 	return {
@@ -178,8 +196,8 @@ export function parseTemplateCash(table: Table): ParseResult<TemplateCashLine, Z
 	const rows: TemplateCashLine[] = [];
 	const errors: RowError[] = [];
 
-	table.slice(header.rowIndex + 1).forEach((record, i) => {
-		if (isBlankRow(record)) return;
+	for (const [i, record] of table.slice(header.rowIndex + 1).entries()) {
+		if (isBlankRow(record)) continue;
 		const row = i + 1;
 		const fail = (code: RowError["code"], message: string): void => {
 			errors.push({ row, code, message });
@@ -192,13 +210,31 @@ export function parseTemplateCash(table: Table): ParseResult<TemplateCashLine, Z
 		const balance = readNumber(cell(record, col("balance")));
 		const what = cell(record, col("what")).toLowerCase().replace(/\s+/g, " ");
 
-		if (postingDate === null) return fail("bad_date", `Can’t read the date “${cell(record, col("date"))}” — write it like 2024-04-02 or 02-04-2024`);
-		if (moneyIn === null || moneyOut === null) return fail("bad_number", "Can’t read the amount");
+		if (postingDate === null) {
+			fail("bad_date", `Can’t read the date “${cell(record, col("date"))}” — write it like 2024-04-02 or 02-04-2024`);
+			continue;
+		}
+		if (moneyIn === null || moneyOut === null) {
+			fail("bad_number", "Can’t read the amount");
+			continue;
+		}
 		if ((moneyIn === "" || Number(moneyIn) === 0) === (moneyOut === "" || Number(moneyOut) === 0))
-			return fail("bad_number", "Give an amount under money in or under money out — one of them, not both");
-		if (Number(moneyIn || "0") < 0 || Number(moneyOut || "0") < 0) return fail("bad_number", "Amounts are written without a minus sign");
-		if (balance === null || balance === "") return fail("bad_number", "The balance after this line is missing");
-		if (description === "") return fail("missing_field", "The description is missing");
+			 {
+				fail("bad_number", "Give an amount under money in or under money out — one of them, not both");
+				continue;
+			}
+		if (Number(moneyIn || "0") < 0 || Number(moneyOut || "0") < 0) {
+			fail("bad_number", "Amounts are written without a minus sign");
+			continue;
+		}
+		if (balance === null || balance === "") {
+			fail("bad_number", "The balance after this line is missing");
+			continue;
+		}
+		if (description === "") {
+			fail("missing_field", "The description is missing");
+			continue;
+		}
 
 		rows.push({
 			row,
@@ -211,7 +247,7 @@ export function parseTemplateCash(table: Table): ParseResult<TemplateCashLine, Z
 			netBalance: dec6ToString(dec6(balance)),
 			what: WHAT[what] ?? null,
 		});
-	});
+	}
 
 	const first = rows[0];
 	const last = rows[rows.length - 1];
