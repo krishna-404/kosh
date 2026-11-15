@@ -4,6 +4,8 @@ Phased so that every milestone ends with something the family can actually use, 
 
 Open grillings gate only the milestones that name them; M0–M2 can start immediately.
 
+> **Build order:** the milestones below are delivered as the nine shippable phases in [06-build-plan.md](./06-build-plan.md), which is the working plan. Milestone numbers are kept here because issues refer to them.
+
 ---
 
 ## M0 — Foundation reset  *(ticket [#13](https://github.com/krishna-404/family-portfolio-tracker/issues/13); unblocked)*
