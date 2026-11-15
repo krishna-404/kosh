@@ -72,6 +72,9 @@ const envSchema = z.object({
 		.min(32, "Internal API secret must be at least 32 characters")
 		.optional(),
 	IS_E2E_TEST: z.stringbool().optional(),
+	// Fetch prices from NSE and AMFI. On everywhere except tests, which have
+	// no business on the network; set it explicitly to override either way.
+	MARKET_DATA_SYNC: z.stringbool().optional(),
 	LOG_LEVEL: z
 		.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"])
 		.optional(),

@@ -11,6 +11,7 @@ import {
 	balanceBefore,
 	openingIsExplained,
 } from "@backend/modules/imports/services/history.service";
+import { onLedgerChanged } from "@backend/modules/metrics/services/ledger_changed";
 import {
 	atLeast,
 	inList,
@@ -213,6 +214,7 @@ async function classify(
 		classifiedEventId: event.id,
 		inrAmount: amount,
 	});
+	await onLedgerChanged(line.accountId);
 	return flow.id;
 }
 
@@ -258,6 +260,7 @@ export async function changeLine(input: { cashFlowId: string; answer?: LineAnswe
 			.where({ id: flow.classifiedEventId })
 			.update({ supersededByEventId: retraction.id });
 		await db.cashFlows.where({ id: flow.id }).update({ isLive: false });
+		await onLedgerChanged(flow.accountId);
 		// A pairing that relied on this entry no longer holds.
 		await db.transferLinks
 			.where({ isLive: true, OR: [{ outFlowId: flow.id }, { inFlowId: flow.id }] })
@@ -308,6 +311,7 @@ export async function explainOpeningBalance(accountId: string) {
 			inrAmount: opening,
 			origin: "opening_balance",
 		});
+		await onLedgerChanged(accountId);
 		return { cashFlowId: flow.id };
 	});
 }
@@ -361,6 +365,7 @@ export async function answerIsin(input: { rawTradeId: string; isin: string }) {
 			netValue: value,
 			recognizedEventId: event.id,
 		});
+		await onLedgerChanged(raw.accountId);
 		return { tradeId: trade.id };
 	});
 }

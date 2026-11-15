@@ -1,4 +1,5 @@
 import { db } from "@backend/db/db";
+import { onLedgerChanged } from "@backend/modules/metrics/services/ledger_changed";
 import {
 	atLeast,
 	requireAccess,
@@ -633,6 +634,7 @@ export async function applyStatement(input: StatementUpload) {
 			meta: analysis.meta,
 		});
 		await analysis.write(batch.id);
+		await onLedgerChanged(input.accountId);
 		return {
 			batchId: batch.id,
 			added: analysis.summary.new,
@@ -699,6 +701,7 @@ export async function undoUpload(input: { batchId: string; reason?: string }): P
 		await db.importBatches
 			.where({ id: batch.id })
 			.update({ status: "retracted", retractionEventId: retraction.id });
+		await onLedgerChanged(batch.accountId);
 	});
 }
 

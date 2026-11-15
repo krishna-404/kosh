@@ -13,6 +13,7 @@ import {
 	isStaging,
 	isTest,
 } from "@backend/configs/env.config";
+import { startMarketDataCron } from "@backend/cron_jobs/market_data.cron";
 import { startReconcileFcmTokensCron } from "@backend/cron_jobs/reconcile_fcm_tokens.cron";
 import { startEventBus } from "@backend/events/events.utils";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
@@ -136,6 +137,8 @@ try {
 	} else {
 		logger.info("Novu not configured; reconcile cron skipped");
 	}
+
+	startMarketDataCron();
 
 	handleServerClose(server);
 } catch (err) {

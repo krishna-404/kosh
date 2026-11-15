@@ -11,6 +11,9 @@ import { RawLedgerLineTable } from "@backend/modules/imports/tables/raw_ledger_l
 import { RawTradeTable } from "@backend/modules/imports/tables/raw_trades.table";
 import { InstrumentAliasTable } from "@backend/modules/instruments/tables/instrument_aliases.table";
 import { InstrumentTable } from "@backend/modules/instruments/tables/instruments.table";
+import { MarketStateTable } from "@backend/modules/market-data/tables/market_state.table";
+import { PriceBarTable } from "@backend/modules/market-data/tables/price_bars.table";
+import { ProviderPayloadTable } from "@backend/modules/market-data/tables/provider_payloads.table";
 import { CashFlowTable } from "@backend/modules/ledger/tables/cash_flows.table";
 import { EventTable } from "@backend/modules/ledger/tables/events.table";
 import { TradeChargeUnitTable } from "@backend/modules/ledger/tables/trade_charge_units.table";
@@ -51,6 +54,9 @@ export const db = orchidORM(
 		rawLedgerLines: RawLedgerLineTable,
 		rawHoldingsSnapshots: RawHoldingsSnapshotTable,
 		instruments: InstrumentTable,
+		marketState: MarketStateTable,
+		priceBars: PriceBarTable,
+		providerPayloads: ProviderPayloadTable,
 		instrumentAliases: InstrumentAliasTable,
 		events: EventTable,
 		trades: TradeTable,

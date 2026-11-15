@@ -1,4 +1,5 @@
 import type { Server } from "node:http";
+import { stopMarketDataCron } from "@backend/cron_jobs/market_data.cron";
 import { stopReconcileFcmTokensCron } from "@backend/cron_jobs/reconcile_fcm_tokens.cron";
 import { db } from "@backend/db/db";
 import { getTbusStartPromise } from "@backend/events/events.utils";
@@ -98,6 +99,7 @@ export const handleServerClose = (server: Server) => {
 			}
 
 			stopReconcileFcmTokensCron();
+			stopMarketDataCron();
 
 			await tbus.stop().catch((error) => {
 				logger.error({ err: error }, "Error stopping pg-tbus event bus");

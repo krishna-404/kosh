@@ -33,6 +33,8 @@ export class BrokerAccountTable extends BaseTable {
 			connectionMethod: t.string(20).default("file_drop"),
 			openedAt: t.date().nullable(),
 			closedAt: t.date().nullable(),
+			/** Goes up with every upload, undo and answer: what is derived from the ledger is stale below it. */
+			ledgerVersion: t.integer().default(0),
 
 			...t.timestampsAsNumbers(),
 		}),

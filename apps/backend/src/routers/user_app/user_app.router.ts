@@ -3,6 +3,7 @@ import { cdnRouter } from "@backend/modules/cdn/cdn.user_app.router";
 import { filesRouter } from "@backend/modules/files/files.router";
 import { importsRouter } from "@backend/modules/imports/imports.router";
 import { ledgerRouter } from "@backend/modules/ledger/ledger.router";
+import { moneyRouter } from "@backend/modules/metrics/money.router";
 import { notificationsRouter } from "@backend/modules/notifications/notifications.router";
 import { accessRouter } from "@backend/modules/portfolio/access.router";
 import { portfolioRouter } from "@backend/modules/portfolio/portfolio.router";
@@ -48,6 +49,7 @@ export const userAppRouter = {
 	imports: importsRouter,
 	ledger: ledgerRouter,
 	me: meRouter,
+	money: moneyRouter,
 	notifications: notificationsRouter,
 	portfolio: portfolioRouter,
 	questions: questionsRouter,
