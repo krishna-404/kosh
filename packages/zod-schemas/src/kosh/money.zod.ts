@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { brokerZod, groupKindZod } from "../enums.zod.js";
+import { feeEffectZod } from "./income.zod.js";
 
 /**
  * Value, returns and "the same money elsewhere" — the contract between the
@@ -58,6 +59,11 @@ export const movedZod = z.object({
 	interest: z.string(),
 	/** Brokerage, taxes and charges, as a positive amount. */
 	fees: z.string(),
+	/**
+	 * Of `takenOut`: dividends, which are paid straight to the holder's bank —
+	 * money the account earned (`dividends`) and that left it the same day.
+	 */
+	dividendsToBank: z.string().optional(),
 	closing: z.string(),
 });
 
@@ -115,7 +121,16 @@ export const returnsZod = z.object({
 		shortWindow: z.boolean(),
 		/** Prices are still being fetched for the first time. */
 		pricesLoading: z.boolean(),
+		/** Dividends counted on Kosh's working alone, waiting for someone to confirm. */
+		dividendsToConfirm: z.number().int().optional(),
 	}),
+	/**
+	 * Set when a manager's fee is paid from outside the accounts: `xirr` and
+	 * each benchmark's `ahead` are then AFTER those fees (the benchmark gets
+	 * the fee money too — it is the same money), and this says what they
+	 * were before.
+	 */
+	fees: feeEffectZod.nullable().optional(),
 	trail: trailZod,
 });
 export type Returns = z.infer<typeof returnsZod>;
@@ -218,6 +233,8 @@ const groupRowZod = z.object({
 	/** Calendar years in which it beat NIFTY, of those it has a full year for. */
 	yearsAhead: z.number().int(),
 	yearsCounted: z.number().int(),
+	/** Set when a manager's fee is paid from outside its accounts: the figures above are after it. */
+	fees: feeEffectZod.nullable().optional(),
 });
 
 export const groupsComparedZod = z.object({

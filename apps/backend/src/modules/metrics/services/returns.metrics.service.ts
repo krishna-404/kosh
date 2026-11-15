@@ -1,5 +1,6 @@
 import { db } from "@backend/db/db";
 import { NO_ROWS } from "@backend/lib/request-context";
+import { countDividendsToConfirm } from "@backend/modules/dividends/services/dividends.service";
 import {
 	type Benchmark,
 	type CloseSeries,
@@ -337,6 +338,8 @@ export async function getReturns(scopeInput: Scope, period: Period): Promise<Ret
 
 	const fees = selection.series.reduce((sum, s) => sum + sumIn(s.fees, w), 0);
 	const interest = selection.series.reduce((sum, s) => sum + sumIn(s.interest, w), 0);
+	// Dividends go straight to the holder's bank: earned by the account, and gone from it the same day.
+	const dividends = core.flows.reduce((sum, f) => (f.what === "dividend" ? sum - f.amount : sum), 0);
 	const putIn = core.flows.reduce((sum, f) => (f.amount > 0 ? sum + f.amount : sum), 0);
 	const takenOut = core.flows.reduce((sum, f) => (f.amount < 0 ? sum - f.amount : sum), 0);
 	const gains = core.closing - core.opening - putIn + takenOut;
@@ -359,7 +362,10 @@ export async function getReturns(scopeInput: Scope, period: Period): Promise<Ret
 		opening_balance: "Already in the account when its ledger starts",
 		bought: "Bought (no ledger in — counted as put in)",
 		sold: "Sold (no ledger in — counted as taken out)",
+		dividend: "Dividend, paid to the holder’s bank",
+		manager_fee: "Fund manager’s fee, paid from outside the account",
 	};
+	const toConfirm = await countDividendsToConfirm(scope.accountIds);
 
 	return {
 		scope: { kind: scope.kind, label: scope.label, accounts: scope.accountIds.length },
@@ -382,8 +388,9 @@ export async function getReturns(scopeInput: Scope, period: Period): Promise<Ret
 			opening: money(core.opening),
 			putIn: money(putIn),
 			takenOut: money(takenOut),
-			priceGains: money(gains + fees - interest),
-			dividends: "0.00",
+			priceGains: money(gains + fees - interest - dividends),
+			dividends: money(dividends),
+			dividendsToBank: money(dividends),
 			interest: money(interest),
 			fees: money(fees),
 			closing: money(core.closing),
@@ -423,6 +430,7 @@ export async function getReturns(scopeInput: Scope, period: Period): Promise<Ret
 			questionsWaiting: scope.accountIds.reduce((sum, id) => sum + (waiting.get(id) ?? 0), 0),
 			shortWindow: days < 365,
 			pricesLoading: await pricesLoading(selection.series.flatMap((x) => x.unpriced)),
+			dividendsToConfirm: scope.accountIds.reduce((sum, id) => sum + (toConfirm.get(id) ?? 0), 0),
 		},
 		trail: {
 			flows: [

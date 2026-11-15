@@ -172,6 +172,7 @@ describe("Money", () => {
 			takenOut: "20000.00",
 			priceGains: "10000.00", // 100 shares × ₹100
 			dividends: "0.00",
+			dividendsToBank: "0.00",
 			interest: "0.00",
 			fees: "50.00", // the settlement took ₹50,050 for ₹50,000 of shares
 			closing: "139950.00",

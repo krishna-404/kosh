@@ -52,6 +52,17 @@ const page = (path: string, importer: () => Promise<{ default: React.ComponentTy
 	lazy: lazyRoute(importer),
 });
 
+// Signed-in development aids (inside the app shell), left out of production builds.
+const devPages =
+	import.meta.env.MODE === "production"
+		? []
+		: [
+				page(
+					"/kit/statements/:accountId",
+					() => import("@frontend/modules/kit/pages/StatementsPreview.page"),
+				),
+			];
+
 const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 	{
 		path: "/",
@@ -95,6 +106,7 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 					page(ROUTES.access, () => import("@frontend/modules/access/pages/WhoCanSeeWhat.page")),
 					page(ROUTES.activity, () => import("@frontend/modules/activity/pages/Activity.page")),
 					page(ROUTES.profile, () => import("@frontend/modules/profile/pages/Profile.page")),
+					...devPages,
 				],
 			},
 			// Anything else — including bookmarks to pages that no longer

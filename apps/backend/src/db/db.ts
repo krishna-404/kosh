@@ -4,7 +4,10 @@ import { SessionTable } from "@backend/modules/auth/tables/session.auth.table";
 import { VerificationTable } from "@backend/modules/auth/tables/verification.auth.table";
 import { CorporateActionApplicationTable } from "@backend/modules/corporate-actions/tables/corporate_action_applications.table";
 import { CorporateActionTable } from "@backend/modules/corporate-actions/tables/corporate_actions.table";
+import { DividendTable } from "@backend/modules/dividends/tables/dividends.table";
 import { PgTbusTaskLogTable } from "@backend/modules/events/tables/pg_tbus_task_log.table";
+import { FeeArrangementTable } from "@backend/modules/fees/tables/fee_arrangements.table";
+import { FeePaymentTable } from "@backend/modules/fees/tables/fee_payments.table";
 import { FileTable } from "@backend/modules/files/tables/files.table";
 import { ImportBatchTable } from "@backend/modules/imports/tables/import_batches.table";
 import { ImportFileTable } from "@backend/modules/imports/tables/import_files.table";
@@ -66,6 +69,9 @@ export const db = orchidORM(
 		cashFlows: CashFlowTable,
 		corporateActionApplications: CorporateActionApplicationTable,
 		corporateActions: CorporateActionTable,
+		dividends: DividendTable,
+		feeArrangements: FeeArrangementTable,
+		feePayments: FeePaymentTable,
 		transferLinks: TransferLinkTable,
 
 		// API only

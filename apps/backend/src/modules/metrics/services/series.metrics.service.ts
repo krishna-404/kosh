@@ -20,7 +20,16 @@ export interface ExternalFlow {
 	date: string;
 	/** Signed: + into the account, − out of it. */
 	amount: number;
-	what: "deposit" | "withdrawal" | "opening_balance" | "bought" | "sold";
+	what: "deposit" | "withdrawal" | "opening_balance" | "bought" | "sold" | "dividend" | "manager_fee";
+}
+
+/** A dividend counted for an account: positive, on the day it is counted. */
+export interface DividendPoint {
+	id: string;
+	instrumentId: string;
+	date: string;
+	amount: number;
+	confirmed: boolean;
 }
 
 export interface TradePoint {
@@ -57,6 +66,11 @@ export interface AccountSeries {
 	/** Brokerage, taxes and charges, as positive amounts on the day they were debited. */
 	fees: DatedAmount[];
 	interest: DatedAmount[];
+	/**
+	 * Dividends, which go to the holder's bank rather than into the account:
+	 * each is also in `flows` as money that left on the day it is counted.
+	 */
+	dividends: DividendPoint[];
 	/** What is held today. */
 	quantities: Map<string, number>;
 	/** Held today with no market price at all. */
@@ -78,6 +92,7 @@ const EMPTY = (accountId: string): AccountSeries => ({
 	trades: [],
 	fees: [],
 	interest: [],
+	dividends: [],
 	quantities: new Map(),
 	unpriced: [],
 	pricesAsOf: null,
@@ -93,6 +108,12 @@ export type QuantityFactors = Map<string, { date: string; factor: number }[]>;
 let quantityFactorsFor: (accountId: string) => Promise<QuantityFactors> = async () => new Map();
 export const setQuantityFactorSource = (source: typeof quantityFactorsFor): void => {
 	quantityFactorsFor = source;
+};
+
+/** Filled in by the dividends module; until it loads there are none. */
+let dividendsFor: (accountId: string) => Promise<DividendPoint[]> = async () => [];
+export const setDividendSource = (source: typeof dividendsFor): void => {
+	dividendsFor = source;
 };
 
 const SETTLE_WITHIN_DAYS = 7;
@@ -119,6 +140,8 @@ async function buildSeries(accountId: string, today: string): Promise<AccountSer
 		price: Number(t.price),
 		value: Number(t.grossValue),
 	}));
+	// A dividend only counts while the account has a history to count it in.
+	const dividends = (await dividendsFor(accountId)).filter((d) => d.date <= today);
 	const firsts = [trades[0]?.date, lines[0]?.postedDate, flowRows[0]?.flowDate].filter(
 		(d): d is string => d !== undefined,
 	);
@@ -167,6 +190,13 @@ async function buildSeries(accountId: string, today: string): Promise<AccountSer
 				amount: t.side === "buy" ? t.value : -t.value,
 				what: t.side === "buy" ? "bought" : "sold",
 			});
+
+	// A dividend is money the account earned and paid straight out to the
+	// holder's bank: it never shows in the balance, so it is counted as money
+	// taken out on its day — which is what makes it part of the return.
+	for (const d of dividends)
+		if (d.date >= start) flows.push({ id: `dividend:${d.id}`, date: d.date, amount: -d.amount, what: "dividend" });
+	flows.sort((a, b) => a.date.localeCompare(b.date));
 
 	// ── Trades not yet settled ────────────────────────────────────────────
 	// A share bought today is held today, but its money leaves the ledger a
@@ -275,6 +305,7 @@ async function buildSeries(accountId: string, today: string): Promise<AccountSer
 		trades,
 		fees,
 		interest,
+		dividends: dividends.filter((d) => d.date >= start),
 		quantities,
 		unpriced: [...quantities.keys()].filter((id) => !closes.has(id)),
 		pricesAsOf,

@@ -76,6 +76,7 @@ async function build(selection: Selection): Promise<Built> {
 		let bought = 0;
 		let sold = 0;
 		let lastTradePrice = 0;
+		let received = 0; // dividends
 		let units = 0; // what the same buys and sells would hold of NIFTY
 		const flows: Flow[] = [];
 		const heldIn: Holding["heldIn"] = [];
@@ -90,6 +91,14 @@ async function build(selection: Selection): Promise<Built> {
 				const index = closeOnOrAfter(nifty, t.date);
 				if (index) units += signed / index;
 				lastTradePrice = t.price;
+			}
+			// A dividend is money this share handed back; the same money comes out of NIFTY that day.
+			for (const d of s.dividends) {
+				if (d.instrumentId !== instrument.id) continue;
+				received += d.amount;
+				flows.push({ date: d.date, amount: d.amount });
+				const index = closeOnOrAfter(nifty, d.date);
+				if (index) units -= d.amount / index;
 			}
 			const held = s.quantities.get(instrument.id) ?? 0;
 			quantity += held;
@@ -125,7 +134,7 @@ async function build(selection: Selection): Promise<Built> {
 			value: money(value),
 			weight: 0,
 			invested: money(bought),
-			gain: money(value + sold - bought),
+			gain: money(value + sold + received - bought),
 			xirr: rate(closeOut(value)),
 			benchmarkXirr: benchmarkValue === null ? null : rate(closeOut(benchmarkValue)),
 			benchmarkValue: benchmarkValue === null ? null : money(benchmarkValue),

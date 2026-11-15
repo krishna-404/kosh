@@ -5,6 +5,7 @@ import {
 	groupKindZod,
 	holderKindZod,
 } from "../enums.zod.js";
+import { feeArrangementZod } from "./income.zod.js";
 
 /**
  * People, accounts, sharing and groups — the contract between the backend
@@ -122,6 +123,8 @@ export const directoryAccountZod = z.object({
 	sharedBy: sharerZod.nullable(),
 	/** Shared with the caller and not yet looked at. */
 	isNew: z.boolean(),
+	/** What a manager is paid for this account from outside it, when someone has set that. */
+	fee: feeArrangementZod.nullable().optional(),
 	/** Who else can see it — given to owners only. */
 	access: z
 		.object({

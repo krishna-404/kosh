@@ -5,6 +5,7 @@ import {
 	settleActions,
 	syncCorporateActions,
 } from "@backend/modules/corporate-actions/services/corporate_actions.service";
+import { settleDividends } from "@backend/modules/dividends/services/dividends.service";
 import { adoptIsin, shareLineOf } from "@backend/modules/instruments/services/isin.instruments.service";
 import { logger } from "@backend/utils/logger.utils";
 import { bhavcopyUrls, parseBhavcopy } from "../lib/bhavcopy.market";
@@ -38,6 +39,8 @@ export interface SyncReport {
 	actionsFound: number;
 	/** Splits and bonuses applied to accounts by this run. */
 	actionsApplied: number;
+	/** Dividends newly worked out (or corrected) from announcements × holdings. */
+	dividendsFound: number;
 	/** Why the run stopped early, in words fit for a status line. */
 	problems: string[];
 }
@@ -376,6 +379,7 @@ async function run(options: SyncOptions): Promise<SyncReport> {
 		barsWritten: 0,
 		actionsFound: 0,
 		actionsApplied: 0,
+		dividendsFound: 0,
 		problems: [],
 	};
 	if (!(await acquireLease())) {
@@ -399,6 +403,7 @@ async function run(options: SyncOptions): Promise<SyncReport> {
 		// 5. Splits and bonuses: what the exchange announced, applied where Kosh is sure.
 		report.actionsFound = await syncCorporateActions(today, report.problems);
 		report.actionsApplied = await settleActions();
+		report.dividendsFound = await settleDividends();
 	} finally {
 		const note =
 			report.problems.length > 0

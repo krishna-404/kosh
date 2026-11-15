@@ -191,20 +191,36 @@ export async function syncCorporateActions(today: string, problems: string[]): P
 // A ULID from the same generator the tables use, for the raw insert above.
 const newId = (): string => ulid();
 
+// ─── When a split or bonus changes what an account holds ────────────────
+
+/**
+ * What else rests on the holdings and must be worked out again — dividends
+ * are due on the shares held, so they follow. Registered by those modules;
+ * this one does not know them.
+ */
+const afterHoldingsChange: ((accountId: string) => Promise<unknown>)[] = [];
+export const onHoldingsChanged = (listener: (accountId: string) => Promise<unknown>): void => {
+	afterHoldingsChange.push(listener);
+};
+async function holdingsChanged(accountId: string): Promise<void> {
+	await bumpLedger(accountId);
+	for (const listener of afterHoldingsChange) await listener(accountId);
+}
+
 // ─── What an account held on a day ──────────────────────────────────────
 
-interface Pair {
+export interface Pair {
 	accountId: string;
 	instrumentId: string;
 }
 
-interface Held {
+export interface Held {
 	trades: { date: string; signed: number }[];
 	/** Live applied applications for the pair: ex-date → factor. */
 	factors: { date: string; factor: number }[];
 }
 
-async function loadHeld(pairs: Pair[]): Promise<Map<string, Held>> {
+export async function loadHeld(pairs: Pair[]): Promise<Map<string, Held>> {
 	const held = new Map<string, Held>();
 	if (pairs.length === 0) return held;
 	const accountIds = [...new Set(pairs.map((p) => p.accountId))];
@@ -228,7 +244,7 @@ async function loadHeld(pairs: Pair[]): Promise<Map<string, Held>> {
 }
 
 /** Shares held at the start of `date`: trades before it, with earlier splits and bonuses applied. */
-function quantityAtStartOf(h: Held | undefined, date: string): number {
+export function quantityAtStartOf(h: Held | undefined, date: string): number {
 	if (!h) return 0;
 	const steps = [
 		...h.trades.filter((t) => t.date < date).map((t) => ({ date: t.date, order: 1, apply: (q: number) => q + t.signed })),
@@ -275,7 +291,7 @@ async function recordApplication(input: {
 		eventId: event.id,
 		decidedByUserId: input.userId,
 	});
-	await bumpLedger(input.accountId);
+	await holdingsChanged(input.accountId);
 	return application.id;
 }
 
@@ -627,7 +643,7 @@ export async function undoApplication(applicationId: string): Promise<void> {
 		});
 		await db.events.where({ id: application.eventId }).update({ supersededByEventId: retraction.id });
 		await db.corporateActionApplications.where({ id: application.id }).update({ isLive: false });
-		await bumpLedger(application.accountId);
+		await holdingsChanged(application.accountId);
 	});
 }
 
