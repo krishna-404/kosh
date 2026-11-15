@@ -280,8 +280,11 @@ describe("Market data", () => {
 		expect(report.problems[0]).toMatch(/NSE answered 403/);
 		expect(await db.providerPayloads.count()).toBe(0);
 		expect(await db.marketState.where({ id: 1 }).get("lastSyncNote")).toMatch(/403/);
+		expect(await db.marketState.where({ id: 1 }).get("lastSyncOk")).toBe(false);
 		// Nothing is marked as a holiday on the strength of a refusal.
 		refuse = false;
 		expect((await syncMarketData({ today: "2024-07-10" })).daysFetched).toBe(3);
+		// …and a fetch that goes through clears the trouble.
+		expect(await db.marketState.where({ id: 1 }).get("lastSyncOk")).toBe(true);
 	});
 });

@@ -7,13 +7,15 @@ import { Page } from "@frontend/components/layout/Page";
 import { NotificationSettings } from "@frontend/components/notifications/NotificationSettings";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { NAV } from "@frontend/copy/nav.copy";
+import { PROFILE } from "@frontend/copy/profile.copy";
+import { FeedsCard } from "@frontend/modules/profile/components/FeedsCard";
 
 export default function ProfilePage() {
 	const { user } = useSessionInfo();
 	if (!user) return null;
 
 	return (
-		<Page title={NAV.profile} subtitle="How you sign in and how Kosh reaches you.">
+		<Page title={NAV.profile} subtitle={PROFILE.subtitle}>
 			<SectionCard>
 				<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
 					<HolderAvatar name={user.name || user.email || "You"} colorKey={user.id} size="lg" />
@@ -33,6 +35,8 @@ export default function ProfilePage() {
 			</SectionCard>
 
 			<NotificationSettings />
+
+			<FeedsCard />
 
 			<AppVersionLabel prefix="Kosh · " />
 		</Page>

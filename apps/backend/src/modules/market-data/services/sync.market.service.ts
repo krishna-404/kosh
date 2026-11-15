@@ -413,6 +413,7 @@ async function run(options: SyncOptions): Promise<SyncReport> {
 			syncLeaseUntil: null,
 			lastSyncAt: Date.now(),
 			lastSyncNote: note,
+			lastSyncOk: report.problems.length === 0,
 		});
 		if (report.barsWritten > 0) await db.marketState.where({ id: 1 }).increment("pricesVersion");
 	}

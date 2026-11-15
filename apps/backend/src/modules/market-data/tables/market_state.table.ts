@@ -13,6 +13,8 @@ export class MarketStateTable extends BaseTable {
 		lastSyncAt: t.timestampNumber().nullable(),
 		/** What the last sync did, or why it could not finish — for the feed-health view. */
 		lastSyncNote: t.text().nullable(),
+		/** False when the last sync could not finish (the note then says why). */
+		lastSyncOk: t.boolean().default(true),
 		/** Held by whichever process is syncing, so two do not download the same files. */
 		syncLeaseUntil: t.timestampNumber().nullable(),
 

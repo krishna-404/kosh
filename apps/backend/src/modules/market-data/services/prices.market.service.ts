@@ -87,12 +87,13 @@ export interface MarketState {
 	pricesVersion: number;
 	lastSyncAt: number | null;
 	lastSyncNote: string | null;
+	lastSyncOk: boolean;
 }
 
 export async function getMarketState(): Promise<MarketState> {
 	const row = await db.marketState
 		.where({ id: 1 })
-		.select("pricesVersion", "lastSyncAt", "lastSyncNote")
+		.select("pricesVersion", "lastSyncAt", "lastSyncNote", "lastSyncOk")
 		.takeOptional();
-	return row ?? { pricesVersion: 0, lastSyncAt: null, lastSyncNote: null };
+	return row ?? { pricesVersion: 0, lastSyncAt: null, lastSyncNote: null, lastSyncOk: true };
 }

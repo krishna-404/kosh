@@ -71,6 +71,7 @@ const market = rpcPortfolioProcedure.output(marketStatusZod).handler(async () =>
 		pricesAsOf: newest?.barDate ?? null,
 		lastSyncAt: state.lastSyncAt,
 		note: state.lastSyncNote,
+		trouble: state.lastSyncOk ? null : state.lastSyncNote,
 		loading,
 	};
 });

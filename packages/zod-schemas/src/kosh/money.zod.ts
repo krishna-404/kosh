@@ -275,6 +275,9 @@ export type WhatIf = z.infer<typeof whatIfZod>;
 export const marketStatusZod = z.object({
 	pricesAsOf: z.string().nullable(),
 	lastSyncAt: z.number().nullable(),
+	/** What the last fetch did, in a few words. */
 	note: z.string().nullable(),
+	/** Why the last fetch could not finish; null when it went through. */
+	trouble: z.string().nullable().optional(),
 	loading: z.boolean(),
 });
