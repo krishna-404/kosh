@@ -73,7 +73,7 @@ Guards so it stays that way:
 
 **Modules** (as mapped in [01-architecture.md](./01-architecture.md) §2): `portfolio` (exists) · `imports` (exists, grows an adapter registry) · `questions` · `activity` · `market-data` · `instruments` · `metrics` · `corporate-actions` · `dividends` · `fees`.
 
-**Derived data.** One table carries the weight: `account_daily (account_id, date, securities_value, cash_value, total, missing_prices)`. `rebuildAccount(accountId)` replays that account's live trades and applied corporate actions into positions and FIFO lots, values them at each day's close (forward-filled, and counted when it had to be), and adds the ledger cash balance. Each account has a `ledger_version` bumped by any import, undo, answer or corporate action; a rebuild is queued on pg-tbus when it changes and run lazily if a read finds it stale. Every metric for any selection — one account, a holder, a group, everything — is then a sum over `account_daily` plus that selection's external cash flows, which is what makes ten years × ten accounts answer in well under a second.
+**Derived data.** One structure carries the weight: a day-by-day series per account — what it held, what that was worth at each day's close (carried forward where a day had no price, and counted when it had to be), its cash, and the money in and out. It is built by replaying the account's live trades, applied splits and bonuses, dividends and ledger, and is **kept in memory, not in a table**: each account has a `ledger_version` bumped by any import, undo, answer, corporate action, dividend or fee change, the market has a `prices_version`, and a series is thrown away the moment either moves. (The first plan had an `account_daily` table rebuilt by a queue; measuring showed the replay is fast enough — the demo family of three accounts over 3½ years answers a cold query in well under a second and a warm one in about 40 ms — so there is nothing to keep in step and nothing that can go stale. A table can be added behind the same function if measurements at ten accounts × ten years ask for it.) Every metric for any selection — one account, a holder, a group, everything — is a sum over these series plus that selection's external cash flows.
 
 **One selection rule.** Every money endpoint takes a selection (`everything` | group | holder | account) and resolves it against the accounts the caller can see. Transfers between two accounts inside the selection cancel; a transfer with one leg outside is external for that selection ([03-metrics-spec.md](./03-metrics-spec.md) §1).
 
@@ -84,6 +84,22 @@ Guards so it stays that way:
 ## 4. The phases
 
 Sizes are relative (S/M/L/XL), not dates.
+
+**Where each stands** (kept current as phases land):
+
+| Phase | Server | Screens |
+|---|---|---|
+| 1 Design system and shell | — | shipped |
+| 2 People, accounts, sharing | shipped | shipped |
+| 3 Statements in, ledger out | shipped (Zerodha tradebook, ledger, holdings) | in progress |
+| 4 Prices, valuations, returns | shipped | in progress |
+| 5 Splits and bonuses | shipped (bonus, split, ISIN change; mergers and demergers come as questions to answer by hand) | in progress (with the account page) |
+| 6 Dividends and fees | shipped (dividends from the exchange's feed × holdings; four fee shapes; every return before and after fees) | next |
+| 7 More brokers, mutual funds, CAS | not started — Groww, Dhan and CAS need real sample files | — |
+| 8 Foreign shares and crypto | not started — sources still to be chosen | — |
+| 9 Hardening | not started | — |
+
+Departures from the text below, decided while building: derived data is held in memory rather than in an `account_daily` table (§3); Zerodha's dividend statement is not imported (no sample to build against) — dividends come from the exchange's announcements and are confirmed by the person instead; a dividend is counted from its ex-date until someone says when it arrived, because the feed carries no pay date.
 
 ### Phase 1 — Kosh design system and app shell · M
 *Ships: the app looks and moves like the design, in light and dark, on phone and desktop.*
