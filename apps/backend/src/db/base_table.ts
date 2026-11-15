@@ -15,7 +15,6 @@ import {
 	INSTRUMENT_ALIAS_KIND_ENUM,
 	INSTRUMENT_KIND_ENUM,
 	PG_TBUS_TASK_STATUS_ENUM,
-	TEAM_MEMBER_ROLE_ENUM,
 	THEME_SETTING_ENUM,
 	TRADE_SIDE_ENUM,
 	WEBHOOK_STATUS_ENUM,
@@ -77,17 +76,16 @@ export const BaseTable = createBaseTable({
 		tradeSideEnum: () => t.enum("trade_side_enum", TRADE_SIDE_ENUM),
 
 		/**
-		 * Tenant column for Kosh family-scoped tables (family = teams_app row;
-		 * see docs/kosh/02-domain-model.md §1). Auto-stamped from the
-		 * AsyncLocalStorage request context on insert, like
-		 * `idAndAuditTimestamps.teamId` — NOT NULL because a ledger row without
-		 * a family is meaningless. Pair with a `scopes.default` familyId filter
-		 * on each table (files.table.ts pattern).
+		 * Tenant column for Kosh family-scoped tables (→ families; see
+		 * docs/kosh/02-domain-model.md §1). Auto-stamped from the
+		 * AsyncLocalStorage request context on insert — NOT NULL because a
+		 * ledger row without a family is meaningless. Pair with a
+		 * `scopes.default` familyId filter on each table.
 		 */
 		koshFamilyId: () =>
 			t
 				.string(26)
-				.foreignKey("teams_app", "id", {
+				.foreignKey("families", "id", {
 					onUpdate: "RESTRICT",
 					onDelete: "CASCADE",
 				})
@@ -95,7 +93,7 @@ export const BaseTable = createBaseTable({
 				.setOnCreate(() => {
 					const ctx = getRequestContext();
 					if (!ctx) throw new Error("No request context — cannot set familyId");
-					return ctx.tenantTeamId;
+					return ctx.familyId;
 				}),
 
 		apiRequestMethodEnum: () =>
@@ -107,8 +105,6 @@ export const BaseTable = createBaseTable({
 		fileTypeEnum: () => t.enum("file_type_enum", FILE_TYPE_ENUM),
 		pgTbusTaskStatusEnum: () =>
 			t.enum("pg_tbus_task_status_enum", PG_TBUS_TASK_STATUS_ENUM),
-		teamMemberRoleEnum: () =>
-			t.enum("team_member_role_enum", TEAM_MEMBER_ROLE_ENUM),
 		themeSettingEnum: () => t.enum("theme_setting_enum", THEME_SETTING_ENUM),
 		timestampNumber: () => t.timestamp().asNumber(),
 		ulid: () => t.string(26),

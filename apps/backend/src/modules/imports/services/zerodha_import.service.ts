@@ -241,7 +241,7 @@ function requireCtx(): { familyId: string; userId: string } {
 			status: 401,
 			message: "No active session",
 		});
-	return { familyId: ctx.tenantTeamId, userId: ctx.userId };
+	return { familyId: ctx.familyId, userId: ctx.userId };
 }
 
 function toEpoch(date: string): number {

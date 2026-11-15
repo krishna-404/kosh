@@ -3,7 +3,6 @@ import { filesRouter } from "@backend/modules/files/files.router";
 import { importsRouter } from "@backend/modules/imports/imports.router";
 import { notificationsRouter } from "@backend/modules/notifications/notifications.router";
 import { portfolioRouter } from "@backend/modules/portfolio/portfolio.router";
-import { teamsAppRouter } from "@backend/modules/teams/teams_app.router";
 import { meRouter } from "@backend/modules/users/me.user_app.router";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
 import type {
@@ -44,7 +43,6 @@ export const userAppRouter = {
 	me: meRouter,
 	notifications: notificationsRouter,
 	portfolio: portfolioRouter,
-	teams: teamsAppRouter,
 };
 
 export type UserAppRouter = RouterClient<typeof userAppRouter>;

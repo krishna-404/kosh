@@ -34,12 +34,6 @@ export const authClient = createAuthClient({
               input: themeSettingZod,
               output: themeSettingZod
             }
-          },
-          activeTeamAppId: {
-            type: "string",
-            required: false,
-            defaultValue: null,
-            input: false,
           }
       }
     }),

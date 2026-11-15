@@ -1,23 +1,23 @@
 import { db } from "@backend/db/db";
-import { rpcProtectedActiveTeamProcedure } from "@backend/procedures/protected.procedure";
+import { rpcFamilyProcedure } from "@backend/procedures/protected.procedure";
 import { BROKER_ENUM } from "@connected-repo/zod-schemas/enums.zod";
 import { z } from "zod";
 
 // Minimal CRUD to make imports usable. familyId auto-stamps from request
 // context (koshFamilyId setOnCreate), and every table's default scope filters
-// to the active family — so these handlers never pass or check familyId.
+// to the caller's family — so these handlers never pass or check familyId.
 
-const createPerson = rpcProtectedActiveTeamProcedure
+const createPerson = rpcFamilyProcedure
 	.input(z.object({ displayName: z.string().min(1).max(120) }))
 	.handler(({ input }) =>
 		db.persons.create({ displayName: input.displayName }),
 	);
 
-const listPersons = rpcProtectedActiveTeamProcedure.handler(() =>
+const listPersons = rpcFamilyProcedure.handler(() =>
 	db.persons.order({ displayName: "ASC" }).select("id", "displayName"),
 );
 
-const createAccount = rpcProtectedActiveTeamProcedure
+const createAccount = rpcFamilyProcedure
 	.input(
 		z.object({
 			personId: z.string(),
@@ -34,17 +34,17 @@ const createAccount = rpcProtectedActiveTeamProcedure
 		});
 	});
 
-const listAccounts = rpcProtectedActiveTeamProcedure.handler(() =>
+const listAccounts = rpcFamilyProcedure.handler(() =>
 	db.brokerAccounts
 		.order({ createdAt: "ASC" })
 		.select("id", "personId", "broker", "label", "baseCurrency"),
 );
 
-const createGroup = rpcProtectedActiveTeamProcedure
+const createGroup = rpcFamilyProcedure
 	.input(z.object({ name: z.string().min(1).max(120) }))
 	.handler(({ input }) => db.accountGroups.create({ name: input.name }));
 
-const setGroupMembers = rpcProtectedActiveTeamProcedure
+const setGroupMembers = rpcFamilyProcedure
 	.input(z.object({ groupId: z.string(), accountIds: z.array(z.string()) }))
 	.handler(async ({ input }) => {
 		await db.accountGroups.find(input.groupId); // tenant-scoped
@@ -65,7 +65,7 @@ const setGroupMembers = rpcProtectedActiveTeamProcedure
 		return { ok: true as const };
 	});
 
-const listGroups = rpcProtectedActiveTeamProcedure.handler(async () => {
+const listGroups = rpcFamilyProcedure.handler(async () => {
 	const groups = await db.accountGroups
 		.order({ name: "ASC" })
 		.select("id", "name");

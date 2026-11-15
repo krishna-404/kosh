@@ -26,11 +26,11 @@ export const fileOptionalZod = z.object({
     isMainFileLost: z.boolean().default(false),
 });
 
-// `teamId` is a server-owned tenant scope — it is set from `activeTeamId`
-// on the request context, never accepted from the client, to prevent
-// tenant-forgery via a spread-in field.
+// `familyId` is a server-owned tenant scope — it is set from the request
+// context, never accepted from the client, to prevent tenant-forgery via a
+// spread-in field.
 export const fileServerOwnedZod = z.object({
-    teamId: z.ulid().nullable(),
+    familyId: z.ulid().nullable(),
 });
 
 export const fileCreateInputZod = fileMandatoryZod

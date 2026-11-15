@@ -311,12 +311,6 @@ export const auth = betterAuth({
 					output: themeSettingZod,
 				},
 			},
-			activeTeamAppId: {
-				type: "string",
-				required: false,
-				defaultValue: null,
-				input: false,
-			},
 		},
 		modelName: "users",
 	},

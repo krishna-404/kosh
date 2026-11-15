@@ -21,22 +21,21 @@ export class FileTable extends BaseTable {
 				onDelete: "CASCADE",
 				onUpdate: "RESTRICT",
 			}),
-			// Auto-stamped from AsyncLocalStorage on insert. See journal_entries
-			// for the design note.
-			teamId: t
+			// Auto-stamped from AsyncLocalStorage on insert.
+			familyId: t
 				.ulid()
-				.foreignKey("teams_app", "id", {
+				.foreignKey("families", "id", {
 					onDelete: "CASCADE",
 					onUpdate: "RESTRICT",
 				})
 				.nullable()
-				.setOnCreate(() => getRequestContext()?.tenantTeamId ?? null),
+				.setOnCreate(() => getRequestContext()?.familyId ?? null),
 			deletedAt: t.timestampNumber().nullable(),
 
 			...t.timestampsAsNumbers(),
 		}),
 		(t) => [
-			t.index(["teamId", "updatedAt", "id"]),
+			t.index(["familyId"]),
 			// Look-up index for the parent-scoped fetch pattern
 			// (files.getByTableId).
 			t.index(["tableName", "tableId"]),
@@ -48,7 +47,7 @@ export class FileTable extends BaseTable {
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ teamId: ctx.tenantTeamId }) : q;
+			return ctx ? q.where({ familyId: ctx.familyId }) : q;
 		},
 	});
 

@@ -1,4 +1,4 @@
-import { rpcProtectedActiveTeamProcedure } from "@backend/procedures/protected.procedure";
+import { rpcFamilyProcedure } from "@backend/procedures/protected.procedure";
 import { z } from "zod";
 import { checkFileExistsInCdnService } from "./services/check_file_exists.cdn.services";
 import {
@@ -16,7 +16,7 @@ const generateUrlOutput = z.object({
 /**
  * Generates a presigned URL for uploading a file to S3.
  */
-export const generatePresignedUrl = rpcProtectedActiveTeamProcedure
+export const generatePresignedUrl = rpcFamilyProcedure
 	.route({ method: "GET", tags: ["CDN"] })
 	.input(generateUrlInput)
 	.output(generateUrlOutput)
@@ -25,17 +25,17 @@ export const generatePresignedUrl = rpcProtectedActiveTeamProcedure
 			input,
 			context: {
 				user: { id: userId },
-				activeTeamId,
+				familyId,
 			},
 		}) => {
-			return await generatePresignedUrlService(input, userId, activeTeamId);
+			return await generatePresignedUrlService(input, userId, familyId);
 		},
 	);
 
 /**
  * Generates multiple presigned URLs for batch uploads.
  */
-export const generateBatchPresignedUrls = rpcProtectedActiveTeamProcedure
+export const generateBatchPresignedUrls = rpcFamilyProcedure
 	.route({ method: "POST", tags: ["CDN"] })
 	.input(z.array(generateUrlInput).max(100))
 	.output(z.array(generateUrlOutput))
@@ -44,12 +44,12 @@ export const generateBatchPresignedUrls = rpcProtectedActiveTeamProcedure
 			input,
 			context: {
 				user: { id: userId },
-				activeTeamId,
+				familyId,
 			},
 		}) => {
 			return await Promise.all(
 				input.map((file) =>
-					generatePresignedUrlService(file, userId, activeTeamId),
+					generatePresignedUrlService(file, userId, familyId),
 				),
 			);
 		},
@@ -58,7 +58,7 @@ export const generateBatchPresignedUrls = rpcProtectedActiveTeamProcedure
 /**
  * Checks if a file exists in S3.
  */
-export const checkFileExistsInCdn = rpcProtectedActiveTeamProcedure
+export const checkFileExistsInCdn = rpcFamilyProcedure
 	.route({ method: "GET", tags: ["CDN"] })
 	.input(cdnFileLocatorInput)
 	.output(
@@ -69,10 +69,10 @@ export const checkFileExistsInCdn = rpcProtectedActiveTeamProcedure
 			input,
 			context: {
 				user: { id: userId },
-				activeTeamId,
+				familyId,
 			},
 		}) => {
-			return await checkFileExistsInCdnService(input, userId, activeTeamId);
+			return await checkFileExistsInCdnService(input, userId, familyId);
 		},
 	);
 

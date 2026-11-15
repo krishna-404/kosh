@@ -48,12 +48,12 @@ export class TradeTable extends BaseTable {
 		(t) => [t.index(["accountId", "tradeDate"]), t.index(["instrumentId"])],
 	);
 
-	// Default tenant scope (family = team). Bypass with `.unscope('default')`
+	// Default tenant scope (the family). Bypass with `.unscope('default')`
 	// where a cross-tenant read is genuinely required.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.tenantTeamId }) : q;
+			return ctx ? q.where({ familyId: ctx.familyId }) : q;
 		},
 	});
 }

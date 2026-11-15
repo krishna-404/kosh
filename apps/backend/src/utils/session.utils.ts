@@ -65,7 +65,6 @@ const transformUserData = (
 		timezone: rawUser.timezone,
 		phoneNumber: rawUser.phoneNumber ?? null,
 		phoneNumberVerified: rawUser.phoneNumberVerified ?? false,
-		activeTeamAppId: rawUser.activeTeamAppId ?? null,
 		createdAt: new Date(rawUser.createdAt).getTime(),
 		updatedAt: new Date(rawUser.updatedAt).getTime(),
 	};

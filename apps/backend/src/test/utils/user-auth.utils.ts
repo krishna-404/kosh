@@ -28,13 +28,6 @@ const userLogin = async (loginCredentials: UserLoginCredentials) => {
 
 	const { session, user } = transformSessionAndUserData(sessionData);
 
-	// rpcProtectedActiveTeamProcedure demands `x-team-id` matches the user's
-	// active team. Users get a personal team via UserTable.afterCreate, so
-	// activeTeamAppId is populated by the time login completes.
-	if (user.activeTeamAppId) {
-		reqHeaders.set("x-team-id", user.activeTeamAppId);
-	}
-
 	return {
 		reqHeaders,
 		session,

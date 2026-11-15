@@ -1,5 +1,5 @@
 import { db } from "@backend/db/db";
-import { rpcProtectedActiveTeamProcedure } from "@backend/procedures/protected.procedure";
+import { rpcFamilyProcedure } from "@backend/procedures/protected.procedure";
 import { fileTableNameZod } from "@connected-repo/zod-schemas/enums.zod";
 import {
 	fileCreateInputZod,
@@ -7,20 +7,20 @@ import {
 } from "@connected-repo/zod-schemas/file.zod";
 import { z } from "zod";
 
-const create = rpcProtectedActiveTeamProcedure
+const create = rpcFamilyProcedure
 	.route({ method: "POST", tags: ["Files"] })
 	.input(fileCreateInputZod)
 	.output(fileSelectAllZod)
-	.handler(async ({ input, context: { user, activeTeamId } }) => {
+	.handler(async ({ input, context: { user, familyId } }) => {
 		// Selective .merge() lets late-arriving cdnUrl/thumbnailCdnUrl land on an
 		// existing row without overwriting immutable fields (filename, owner).
 		//
-		// `teamId` is server-owned — pulled from `activeTeamId` on the auth
-		// context, NEVER from the client input, to prevent tenant-forgery.
+		// `familyId` is server-owned — pulled from the auth context, NEVER
+		// from the client input, to prevent tenant-forgery.
 		const newFile = await db.files
 			.create({
 				...input,
-				teamId: activeTeamId,
+				familyId,
 				createdByUserId: user.id,
 			})
 			.onConflict("id")
@@ -29,7 +29,7 @@ const create = rpcProtectedActiveTeamProcedure
 		return newFile;
 	});
 
-const getByTableId = rpcProtectedActiveTeamProcedure
+const getByTableId = rpcFamilyProcedure
 	.route({ method: "GET", tags: ["Files"] })
 	.input(
 		z.object({
@@ -38,13 +38,13 @@ const getByTableId = rpcProtectedActiveTeamProcedure
 		}),
 	)
 	.output(z.array(fileSelectAllZod))
-	.handler(async ({ input, context: { user, activeTeamId } }) => {
+	.handler(async ({ input, context: { user, familyId } }) => {
 		return await db.files
 			.where({
 				tableName: input.tableName,
 				tableId: input.tableId,
 				createdByUserId: user.id,
-				teamId: activeTeamId,
+				familyId,
 			})
 			.order({ createdAt: "ASC" });
 	});

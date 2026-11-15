@@ -19,13 +19,12 @@ import { PushDeviceTable } from "@backend/modules/notifications/tables/push_devi
 import { AccountGroupMemberTable } from "@backend/modules/portfolio/tables/account_group_members.table";
 import { AccountGroupTable } from "@backend/modules/portfolio/tables/account_groups.table";
 import { BrokerAccountTable } from "@backend/modules/portfolio/tables/broker_accounts.table";
+import { FamilyTable } from "@backend/modules/portfolio/tables/families.table";
 import { PersonTable } from "@backend/modules/portfolio/tables/persons.table";
 import { SubscriptionsTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
 import { FeatureFlagTable } from "@backend/modules/system/tables/feature_flags.table";
 import { RateLimitTable } from "@backend/modules/system/tables/rate_limits.table";
-import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.table";
 import { TeamApiTable } from "@backend/modules/teams/tables/teams_api.table";
-import { TeamAppTable } from "@backend/modules/teams/tables/teams_app.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { orchidORM } from "orchid-orm/node-postgres";
 
@@ -36,8 +35,7 @@ export const db = orchidORM(
 	},
 	{
 		users: UserTable,
-		teamsApp: TeamAppTable,
-		teamMembers: TeamMemberTable,
+		families: FamilyTable,
 		files: FileTable,
 
 		// Kosh ledger core (M1) — Layer 1 + Layer 2

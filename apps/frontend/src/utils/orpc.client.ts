@@ -4,9 +4,7 @@ import { RPCLink } from '@orpc/client/fetch';
 import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins';
 import { toast } from 'react-toastify';
 import type { UserAppRouter, UserAppRouterInputs, UserAppRouterOutputs } from "../../../backend/src/routers/user_app/user_app.router";
-import { getActiveTeamIdReady } from "./active_team_header.client";
 import { signout } from './signout.utils';
-import { switchGate } from './switch_gate';
 
 interface ClientContext {
   something?: string
@@ -23,82 +21,18 @@ const orpcBaseUrl = env.VITE_API_URL
 
 const link = new RPCLink<ClientContext>({
   url: orpcBaseUrl,
-  // Async by design: awaits two barriers before every outbound request.
-  //   1. `switchGate.waitOpen()` — blocks during a team switch so the
-  //      header and backend session cannot disagree.
-  //      Rejects after the gate's default timeout so a hung switch
-  //      surfaces as a retriable error instead of piling up requests.
-  //      The `teams.setActiveTeam` RPC itself is exempt — it is the
-  //      operation that drives the switch, and gating it would deadlock
-  //      the very code that is meant to reopen the gate.
-  //   2. `getActiveTeamIdReady()` — first-seed signal for the header
-  //      cache (seeded by authLoader). After the first seed, this
-  //      resolves near-instantly.
-  headers: async ({ context }, path) => {
-    const isSwitchRpc = path[0] === 'teams' && path[1] === 'setActiveTeam';
-    if (!isSwitchRpc) {
-      await switchGate.waitOpen();
-    }
-    const teamId = await getActiveTeamIdReady();
+  headers: ({ context }) => {
     const headers: Record<string, string> = {
       Authorization: 'Bearer token',
     };
     if (context.something) headers['x-api-key'] = context.something;
-    if (teamId) headers['x-team-id'] = teamId;
     return headers;
   },
-  fetch: async (request, init, _options, _path, _input) => {
-    const fetchInit: RequestInit = {
+  fetch: (request, init) =>
+    globalThis.fetch(request, {
       ...init,
       credentials: 'include' as const, // Include cookies for cross-origin requests
-    };
-    const response = await globalThis.fetch(request, fetchInit);
-
-    // Transparent one-shot retry for the "in-flight during team switch"
-    // race. The switch-gate blocks requests that HAVEN'T yet baked their
-    // headers, but a request already dispatched over the network can land
-    // on the server with a stale x-team-id after the backend session has
-    // flipped — the server responds 403 "Active team id mismatch". Here
-    // we wait for the gate to reopen (switch finishes), rebuild the
-    // request with the fresh header, and retry once. A stamp header
-    // prevents a retry loop; a non-team-mismatch 403 falls through.
-    if (
-      response.status === 403 &&
-      !request.headers.get('x-team-switch-retried')
-    ) {
-      let bodyText = '';
-      try {
-        bodyText = await response.clone().text();
-      } catch {
-        // Response body may not be replayable in some browsers.
-      }
-      if (bodyText.includes('Active team id mismatch')) {
-        try {
-          await switchGate.waitOpen();
-        } catch {
-          return response; // gate stuck — surface the original 403
-        }
-        const teamId = await getActiveTeamIdReady();
-        const retryHeaders = new Headers(request.headers);
-        retryHeaders.set('x-team-switch-retried', '1');
-        if (teamId) retryHeaders.set('x-team-id', teamId);
-        else retryHeaders.delete('x-team-id');
-        const method = request.method.toUpperCase();
-        const body =
-          method === 'GET' || method === 'HEAD'
-            ? undefined
-            : await request.clone().blob();
-        const retryReq = new Request(request.url, {
-          method,
-          headers: retryHeaders,
-          body,
-        });
-        return await globalThis.fetch(retryReq, fetchInit);
-      }
-    }
-
-    return response;
-  },
+    }),
   interceptors: [
     onError(async (error) => {
       // Extract error info

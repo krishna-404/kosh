@@ -29,10 +29,6 @@ export const FILE_TYPE_ENUM = ["attachment"] as const;
 export const fileTypeZod = z.enum(FILE_TYPE_ENUM);
 export type FileType = z.infer<typeof fileTypeZod>;
 
-export const TEAM_MEMBER_ROLE_ENUM = ["Owner", "Admin", "Member"] as const;
-export const teamMemberRoleZod = z.enum(TEAM_MEMBER_ROLE_ENUM);
-export type TeamMemberRole = z.infer<typeof teamMemberRoleZod>;
-
 export const THEME_SETTING_ENUM = ["dark", "light", "system"] as const;
 export const themeSettingZod = z.enum(THEME_SETTING_ENUM);
 export type ThemeSetting = z.infer<typeof themeSettingZod>;

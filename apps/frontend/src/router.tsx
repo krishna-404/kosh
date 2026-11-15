@@ -65,14 +65,16 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 						lazy: lazyRoute(() => import("@frontend/pages/Dashboard.page")),
 					},
 					{
-						path: "teams/*",
-						lazy: lazyRoute(() => import("@frontend/modules/teams/teams.router")),
-					},
-					{
 						path: "profile",
 						lazy: lazyRoute(() => import("@frontend/pages/Profile.page")),
 					},
 				],
+			},
+			// Anything else — including bookmarks to pages that no longer
+			// exist — goes to the dashboard instead of a blank screen.
+			{
+				path: "*",
+				loader: () => redirect("/dashboard"),
 			},
 		],
 	},

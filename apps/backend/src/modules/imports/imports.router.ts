@@ -1,4 +1,4 @@
-import { rpcProtectedActiveTeamProcedure } from "@backend/procedures/protected.procedure";
+import { rpcFamilyProcedure } from "@backend/procedures/protected.procedure";
 import { z } from "zod";
 import {
 	applyImport,
@@ -14,22 +14,22 @@ const importInputZod = z.object({
 	content: z.string().min(1).max(20_000_000),
 });
 
-const preview = rpcProtectedActiveTeamProcedure
+const preview = rpcFamilyProcedure
 	.input(importInputZod)
 	.handler(({ input }) => prepareImport(input));
 
-const apply = rpcProtectedActiveTeamProcedure
+const apply = rpcFamilyProcedure
 	.input(importInputZod)
 	.handler(({ input }) => applyImport(input));
 
-const retract = rpcProtectedActiveTeamProcedure
+const retract = rpcFamilyProcedure
 	.input(z.object({ batchId: z.string(), reason: z.string().min(1).max(500) }))
 	.handler(async ({ input }) => {
 		await retractBatch(input);
 		return { ok: true as const };
 	});
 
-const list = rpcProtectedActiveTeamProcedure
+const list = rpcFamilyProcedure
 	.input(z.object({ accountId: z.string() }))
 	.handler(({ input }) => listBatches(input.accountId));
 

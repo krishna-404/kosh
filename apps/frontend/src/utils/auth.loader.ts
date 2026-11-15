@@ -1,9 +1,7 @@
 import { userContext } from "@frontend/contexts/UserContext";
 import { setSentryUser } from "@frontend/instrumentation";
-import { setActiveTeamIdForRequests } from "@frontend/utils/active_team_header.client";
 import { authClient } from "@frontend/utils/auth.client";
 import { saveLastLogin } from "@frontend/utils/auth.persistence";
-import { orpcFetch } from "@frontend/utils/orpc.client";
 import { detectUserTimezone } from "@frontend/utils/timezone.utils";
 import type { LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
@@ -52,30 +50,6 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 		} catch (timezoneError) {
 			console.error(timezoneError);
 			toast.error("Timezone detection/update failed.");
-		}
-
-		// Seed the `x-team-id` header cache BEFORE any component mounts.
-		// The RPC link's headers callback is synchronous — if this isn't
-		// set by the time the first team-scoped query fires, the backend
-		// rejects with 403 "Active team id mismatch".
-		setActiveTeamIdForRequests(session.user.activeTeamAppId ?? null);
-
-		// Self-heal for stale better-auth cookieCache (`auth.config.ts`
-		// `session.cookieCache.maxAge = 5min`). When the cookie was signed
-		// before `users.activeTeamAppId` was set on the row, `getSession()`
-		// keeps returning `null` for up to 5 minutes. `getDefaultTeam` is
-		// the server's canonical fallback: returns the existing personal
-		// team, or creates one, and stamps it back onto the user row.
-		// Uses `rpcProtectedProcedure` (no `x-team-id` required), so calling
-		// it with the header cache seeded to `null` is safe.
-		if (!session.user.activeTeamAppId) {
-			try {
-				const defaultTeam = await orpcFetch.teams.getDefaultTeam();
-				session.user.activeTeamAppId = defaultTeam.id;
-				setActiveTeamIdForRequests(defaultTeam.id);
-			} catch (err) {
-				console.warn("[authLoader] getDefaultTeam fallback failed", err);
-			}
 		}
 
 		const sessionInfo = {

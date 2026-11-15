@@ -1,8 +1,6 @@
-import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Paper } from "@connected-repo/ui-mui/layout/Paper";
-import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { BottomNavigation } from "@connected-repo/ui-mui/navigation/BottomNavigation";
 import { BottomNavigationAction } from "@connected-repo/ui-mui/navigation/BottomNavigationAction";
@@ -10,17 +8,12 @@ import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { UserProfileMenu } from "@frontend/components/layout/UserProfileMenu";
 import { NovuInbox } from "@frontend/components/notifications/NovuInbox";
 import { navItems } from "@frontend/configs/nav.config";
-import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 import { useLocation, useNavigate } from "react-router";
 
 export const MobileNavbar = () => {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { activeWorkspace } = useWorkspace();
 
-	const teamSettingsPath = activeWorkspace.id
-		? `/teams/${activeWorkspace.id}/settings`
-		: null;
 
 	const getBottomNavValue = () => {
 		const navIndex = navItems.findIndex(
@@ -81,51 +74,6 @@ export const MobileNavbar = () => {
 						>
 							Kosh
 						</Typography>
-					</Box>
-
-					{/* Team indicator — click routes to team profile. */}
-					<Box
-						onClick={() => teamSettingsPath && navigate(teamSettingsPath)}
-						sx={{
-							display: "flex",
-							alignItems: "center",
-							px: 1,
-							py: 0.5,
-							borderRadius: 2,
-							cursor: teamSettingsPath ? "pointer" : "default",
-							"&:hover": teamSettingsPath
-								? { bgcolor: "action.hover" }
-								: undefined,
-						}}
-					>
-						<Stack direction="row" spacing={0.75} alignItems="center">
-							<Avatar
-								sx={{
-									width: 24,
-									height: 24,
-									bgcolor:
-										activeWorkspace.type === "personal"
-											? "primary.main"
-											: "secondary.main",
-									fontSize: "0.8rem",
-								}}
-							>
-								{activeWorkspace.name.charAt(0)}
-							</Avatar>
-							<Typography
-								variant="body2"
-								sx={{
-									fontWeight: 600,
-									maxWidth: 120,
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
-									display: { xs: "none", sm: "block" },
-								}}
-							>
-								{activeWorkspace.name}
-							</Typography>
-						</Stack>
 					</Box>
 
 					<NovuInbox />

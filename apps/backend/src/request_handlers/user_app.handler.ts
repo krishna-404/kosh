@@ -29,7 +29,6 @@ export const reactAppHandler = new RPCHandler(userAppRouter, {
 				"content-type",
 				"authorization",
 				"x-csrf-token",
-				"x-team-id",
 				...TRACE_HEADERS_ALLOW,
 			],
 			exposeHeaders: [...TRACE_HEADERS_EXPOSE],
