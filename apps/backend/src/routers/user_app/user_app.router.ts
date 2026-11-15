@@ -1,6 +1,7 @@
 import { activityRouter } from "@backend/modules/activity/activity.router";
 import { cdnRouter } from "@backend/modules/cdn/cdn.user_app.router";
 import { dividendsRouter } from "@backend/modules/dividends/dividends.router";
+import { feesRouter } from "@backend/modules/fees/fees.router";
 import { filesRouter } from "@backend/modules/files/files.router";
 import { importsRouter } from "@backend/modules/imports/imports.router";
 import { ledgerRouter } from "@backend/modules/ledger/ledger.router";
@@ -46,6 +47,7 @@ export const userAppRouter = {
 	activity: activityRouter,
 	cdn: cdnRouter,
 	dividends: dividendsRouter,
+	fees: feesRouter,
 	files: filesRouter,
 	health: healthCheck,
 	imports: importsRouter,

@@ -71,6 +71,12 @@ export interface AccountSeries {
 	 * each is also in `flows` as money that left on the day it is counted.
 	 */
 	dividends: DividendPoint[];
+	/**
+	 * What a fund manager charged from OUTSIDE the account (it is in no
+	 * statement): not in `flows`, `fees` or the value — counted only when a
+	 * return is asked for after fees.
+	 */
+	managerFees: ManagerFee[];
 	/** What is held today. */
 	quantities: Map<string, number>;
 	/** Held today with no market price at all. */
@@ -93,6 +99,7 @@ const EMPTY = (accountId: string): AccountSeries => ({
 	fees: [],
 	interest: [],
 	dividends: [],
+	managerFees: [],
 	quantities: new Map(),
 	unpriced: [],
 	pricesAsOf: null,
@@ -114,6 +121,21 @@ export const setQuantityFactorSource = (source: typeof quantityFactorsFor): void
 let dividendsFor: (accountId: string) => Promise<DividendPoint[]> = async () => [];
 export const setDividendSource = (source: typeof dividendsFor): void => {
 	dividendsFor = source;
+};
+
+export interface ManagerFee {
+	date: string;
+	amount: number;
+	/** Built up since the last bill, not billed yet. */
+	accrued: boolean;
+}
+/** Filled in by the fees module; until it loads nobody is charged anything. */
+let managerFeesFor: (
+	accountId: string,
+	account: { start: string; today: string; valueOn: (date: string) => number; flows: readonly ExternalFlow[] },
+) => Promise<ManagerFee[]> = async () => [];
+export const setFeeSource = (source: typeof managerFeesFor): void => {
+	managerFeesFor = source;
 };
 
 const SETTLE_WITHIN_DAYS = 7;
@@ -292,6 +314,15 @@ async function buildSeries(accountId: string, today: string): Promise<AccountSer
 	}
 
 	const quantities = new Map([...quantity].filter(([, q]) => q > 1e-9));
+	const managerFees = await managerFeesFor(accountId, {
+		start,
+		today,
+		valueOn: (date) => {
+			const i = indexOf.get(date);
+			return i === undefined ? 0 : (total[i] as number);
+		},
+		flows,
+	});
 	return {
 		accountId,
 		start,
@@ -306,6 +337,7 @@ async function buildSeries(accountId: string, today: string): Promise<AccountSer
 		fees,
 		interest,
 		dividends: dividends.filter((d) => d.date >= start),
+		managerFees,
 		quantities,
 		unpriced: [...quantities.keys()].filter((id) => !closes.has(id)),
 		pricesAsOf,

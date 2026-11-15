@@ -4,6 +4,7 @@ import type { GroupsCompared, Period, WhatIf } from "@connected-repo/zod-schemas
 import { ORPCError } from "@orpc/server";
 import { money } from "./dates.metrics";
 import {
+	afterFees,
 	coreReturns,
 	loadBenchmarks,
 	loadSelection,
@@ -57,7 +58,8 @@ export async function getGroupsCompared(period: Period): Promise<GroupsCompared>
 			// Only a year the group existed for, start to finish, is a fair year.
 			if (s.start === null || s.start > `${year}-12-31`) return { groupId: g.id, points: null };
 			const w = { from: `${year - 1}-12-31`, to: year === thisYear ? s.today : `${year}-12-31` };
-			const core = coreReturns(s, w);
+			const gross = coreReturns(s, w);
+			const core = afterFees(s, gross, w) ?? gross;
 			const shadow = shadowOf(core, w, nifty);
 			const points = core.xirr !== null && shadow.xirr !== null ? core.xirr - shadow.xirr : null;
 			const full = year < thisYear && s.start <= `${year}-01-01`;
@@ -84,8 +86,11 @@ export async function getGroupsCompared(period: Period): Promise<GroupsCompared>
 		period,
 		groups: groups.map((g) => {
 			const w = windowFor(g.selection, period);
-			const core = coreReturns(g.selection, w);
+			const gross = coreReturns(g.selection, w);
+			const net = afterFees(g.selection, gross, w);
+			const core = net ?? gross;
 			const shadow = shadowOf(core, w, nifty);
+			const before = net ? shadowOf(gross, w, nifty) : null;
 			const days = g.selection.start === null ? 0 : Math.round((Date.parse(w.to) - Date.parse(w.from)) / 86_400_000);
 			return {
 				groupId: g.id,
@@ -100,6 +105,14 @@ export async function getGroupsCompared(period: Period): Promise<GroupsCompared>
 				shortHistory: days < 365,
 				yearsAhead: tally.get(g.id)?.ahead ?? 0,
 				yearsCounted: tally.get(g.id)?.counted ?? 0,
+				fees: net
+					? {
+							total: money(net.flows.reduce((sum, f) => (f.what === "manager_fee" ? sum + f.amount : sum), 0)),
+							xirrBefore: gross.xirr,
+							aheadPointsBefore:
+								gross.xirr !== null && before && before.xirr !== null ? gross.xirr - before.xirr : null,
+						}
+					: null,
 			};
 		}),
 		years,

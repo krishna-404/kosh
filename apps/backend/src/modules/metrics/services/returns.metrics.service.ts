@@ -103,13 +103,24 @@ export interface Selection {
 	oldPrice: Uint8Array;
 	/** Money in and out of the selection as a whole. */
 	flows: SelectionFlow[];
+	/** What fund managers charged from outside the accounts — money the holder also paid. */
+	feeFlows: SelectionFlow[];
 }
 
 export async function loadSelection(accountIds: readonly string[]): Promise<Selection> {
 	const today = todayInIndia();
 	const series = (await getAccountSeries(accountIds)).filter((s) => s.start !== null);
 	if (series.length === 0)
-		return { series: [], start: null, today, dates: [], total: new Float64Array(0), oldPrice: new Uint8Array(0), flows: [] };
+		return {
+			series: [],
+			start: null,
+			today,
+			dates: [],
+			total: new Float64Array(0),
+			oldPrice: new Uint8Array(0),
+			flows: [],
+			feeFlows: [],
+		};
 
 	const start = series.map((s) => s.start as string).sort()[0] as string;
 	const dates = dayRange(start, today);
@@ -135,7 +146,19 @@ export async function loadSelection(accountIds: readonly string[]): Promise<Sele
 		.filter((f) => !internal.has(f.id))
 		.sort((a, b) => a.date.localeCompare(b.date));
 
-	return { series, start, today, dates, total, oldPrice, flows };
+	const feeFlows = series
+		.flatMap((s) =>
+			s.managerFees.map((f) => ({
+				id: `fee:${s.accountId}:${f.date}`,
+				date: f.date,
+				amount: f.amount,
+				what: "manager_fee" as const,
+				accountId: s.accountId,
+			})),
+		)
+		.sort((a, b) => a.date.localeCompare(b.date));
+
+	return { series, start, today, dates, total, oldPrice, flows, feeFlows };
 }
 
 /** The selection's value at the end of `date` (nothing before it starts). */
@@ -221,6 +244,21 @@ export function coreReturns(s: Selection, w: Window): Core {
 	return { opening, closing, flows, xirr: rate, solver, twr: series };
 }
 
+/**
+ * The same window with a fund manager's fees counted: paid from outside the
+ * accounts, they are more money the holder put in that bought nothing — so
+ * the value is unchanged and the return is lower. Null when no fee falls in
+ * the window. (The time-weighted return is left as it was: it measures the
+ * investments, not what they cost to have managed.)
+ */
+export function afterFees(s: Selection, core: Core, w: Window): Core | null {
+	const fees = s.feeFlows.filter((f) => f.date > w.from && f.date <= w.to);
+	if (fees.length === 0) return null;
+	const flows = [...core.flows, ...fees].sort((a, b) => a.date.localeCompare(b.date));
+	const { rate, solver } = solve(pocketFlows(core.opening, flows, core.closing, w));
+	return { ...core, flows, xirr: rate, solver };
+}
+
 export interface Shadow {
 	value: number | null;
 	xirr: number | null;
@@ -283,7 +321,8 @@ export async function summarizeAccounts(accountIds: readonly string[]): Promise<
 			continue;
 		}
 		const w = windowFor(selection, "all");
-		const core = coreReturns(selection, w);
+		const gross = coreReturns(selection, w);
+		const core = afterFees(selection, gross, w) ?? gross;
 		const shadow = nifty ? shadowOf(core, w, closes.get(nifty.instrumentId)) : null;
 		out.set(id, { value: money(core.closing), xirr: core.xirr, benchmarkXirr: shadow?.xirr ?? null });
 	}
@@ -321,7 +360,11 @@ export async function getReturns(scopeInput: Scope, period: Period): Promise<Ret
 	const scope = await resolveScope(scopeInput);
 	const selection = await loadSelection(scope.accountIds);
 	const w = windowFor(selection, period);
-	const core = coreReturns(selection, w);
+	// `gross` is the accounts as their statements show them; `core` — what
+	// every headline figure uses — also counts a manager's fees paid from outside.
+	const gross = coreReturns(selection, w);
+	const net = afterFees(selection, gross, w);
+	const core = net ?? gross;
 	const { list, closes } = await loadBenchmarks();
 	const days = daysBetween(w.from, w.to);
 
@@ -339,9 +382,10 @@ export async function getReturns(scopeInput: Scope, period: Period): Promise<Ret
 	const fees = selection.series.reduce((sum, s) => sum + sumIn(s.fees, w), 0);
 	const interest = selection.series.reduce((sum, s) => sum + sumIn(s.interest, w), 0);
 	// Dividends go straight to the holder's bank: earned by the account, and gone from it the same day.
-	const dividends = core.flows.reduce((sum, f) => (f.what === "dividend" ? sum - f.amount : sum), 0);
-	const putIn = core.flows.reduce((sum, f) => (f.amount > 0 ? sum + f.amount : sum), 0);
-	const takenOut = core.flows.reduce((sum, f) => (f.amount < 0 ? sum - f.amount : sum), 0);
+	const dividends = gross.flows.reduce((sum, f) => (f.what === "dividend" ? sum - f.amount : sum), 0);
+	const putIn = gross.flows.reduce((sum, f) => (f.amount > 0 ? sum + f.amount : sum), 0);
+	const takenOut = gross.flows.reduce((sum, f) => (f.amount < 0 ? sum - f.amount : sum), 0);
+	const niftyBefore = shadowOf(gross, w, closes.get(list.find((b) => b.slug === "nifty50")?.instrumentId ?? ""));
 	const gains = core.closing - core.opening - putIn + takenOut;
 
 	const labels = new Map(
@@ -432,6 +476,13 @@ export async function getReturns(scopeInput: Scope, period: Period): Promise<Ret
 			pricesLoading: await pricesLoading(selection.series.flatMap((x) => x.unpriced)),
 			dividendsToConfirm: scope.accountIds.reduce((sum, id) => sum + (toConfirm.get(id) ?? 0), 0),
 		},
+		fees: net
+			? {
+					total: money(net.flows.reduce((sum, f) => (f.what === "manager_fee" ? sum + f.amount : sum), 0)),
+					xirrBefore: gross.xirr,
+					aheadPointsBefore: gross.xirr !== null && niftyBefore.xirr !== null ? gross.xirr - niftyBefore.xirr : null,
+				}
+			: null,
 		trail: {
 			flows: [
 				...(Math.abs(core.opening) >= 0.005

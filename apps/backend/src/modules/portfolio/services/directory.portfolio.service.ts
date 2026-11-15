@@ -1,4 +1,5 @@
 import { db } from "@backend/db/db";
+import { currentArrangements } from "@backend/modules/fees/services/fees.service";
 import { summarizeAccounts } from "@backend/modules/metrics/services/returns.metrics.service";
 import {
 	atLeast,
@@ -108,6 +109,7 @@ export async function getDirectory(me: {
 	for (const u of uploads) if (!latestUpload.has(u.accountId)) latestUpload.set(u.accountId, u);
 	const waiting = await countQuestions();
 	const money = await summarizeAccounts(accounts.map((a) => a.id));
+	const fees = await currentArrangements(accounts.map((a) => a.id));
 
 	const users = await usersById([
 		...myGrants.map((g) => g.grantedByUserId),
@@ -182,6 +184,7 @@ export async function getDirectory(me: {
 					isNew: sharer !== undefined && giving.seenAt === null,
 					access,
 					...(money.get(a.id) ?? { value: null, xirr: null, benchmarkXirr: null }),
+					fee: fees.get(a.id) ?? null,
 					updated: (() => {
 						const upload = latestUpload.get(a.id);
 						return upload?.appliedAt
