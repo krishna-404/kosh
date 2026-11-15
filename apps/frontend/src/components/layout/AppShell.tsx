@@ -5,6 +5,7 @@ import { userContext } from "@frontend/contexts/UserContext";
 import { syncPushIfGranted } from "@frontend/utils/push.utils";
 import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLoaderData } from "react-router";
+import { AccessNotices } from "./AccessNotices";
 import { OfflineBanner } from "./OfflineBanner";
 import { BOTTOM_NAV_HEIGHT, BottomTabs, TopBar } from "./PhoneBars";
 import { Sidebar } from "./Sidebar";
@@ -67,6 +68,7 @@ export const AppShell = () => {
 								},
 							}}
 						>
+							<AccessNotices />
 							<Outlet context={sessionInfo} />
 						</Box>
 					</Box>

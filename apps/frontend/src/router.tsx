@@ -65,6 +65,11 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 				lazy: lazyRoute(() => import("@frontend/modules/auth/auth.router")),
 			},
 			...kitRoute,
+			// From the invite email, for someone who is not (and need not be) signed in.
+			{
+				path: "invite/:token/wrong-person",
+				lazy: lazyRoute(() => import("@frontend/modules/invite/pages/WrongPerson.page")),
+			},
 			// Signed-in pages, inside the app shell.
 			{
 				element: <AppShell />,
@@ -77,6 +82,11 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 						ROUTES.accounts,
 						() => import("@frontend/modules/access/pages/AccountsAndPeople.page"),
 					),
+					page(
+						`${ROUTES.accounts}/:accountId`,
+						() => import("@frontend/modules/account/pages/Account.page"),
+					),
+					page("/invite/:token", () => import("@frontend/modules/invite/pages/Invite.page")),
 					page(ROUTES.shared, () => import("@frontend/modules/access/pages/SharedWithMe.page")),
 					page(ROUTES.access, () => import("@frontend/modules/access/pages/WhoCanSeeWhat.page")),
 					page(ROUTES.activity, () => import("@frontend/modules/activity/pages/Activity.page")),

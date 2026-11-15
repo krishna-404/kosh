@@ -28,5 +28,10 @@ export const ROUTES = {
 	profile: "/profile",
 } as const;
 
+/** One account's own page. */
+export const accountPath = (accountId: string): string => `${ROUTES.accounts}/${accountId}`;
+/** Where an invite link lands. */
+export const invitePath = (token: string): string => `/invite/${token}`;
+
 /** Where a signed-in person lands. */
 export const HOME = ROUTES.overview;
