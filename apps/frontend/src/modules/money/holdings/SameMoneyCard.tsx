@@ -119,7 +119,7 @@ export const SameMoneyCard = ({ holding }: SameMoneyCardProps) => {
 								/>
 							</Box>
 						)}
-						<Banner tone={ahead ? "good" : "bad"} icon={ahead ? <IconTrend fontSize="inherit" /> : undefined}>
+						<Banner calm tone={ahead ? "good" : "bad"} icon={ahead ? <IconTrend fontSize="inherit" /> : undefined}>
 							{sentence}
 						</Banner>
 					</>

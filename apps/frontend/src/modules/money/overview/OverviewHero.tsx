@@ -61,6 +61,8 @@ export const OverviewHero = ({ returns, people, scopeLabel, phone, wide }: Overv
 	const banner = sentence.length > 0 && (
 		<Banner
 			tone={standingTone(standings)}
+			// Being behind a benchmark is a result to read, not an error to be interrupted with.
+			calm
 			// A tick (or a warning) would overstate a mixed result.
 			icon={isMixed(standings) ? <IconInfo fontSize="inherit" /> : undefined}
 			sx={{ alignItems: "center", py: 1.25 }}
