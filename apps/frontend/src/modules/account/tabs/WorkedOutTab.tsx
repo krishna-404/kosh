@@ -16,11 +16,11 @@ import { useReturns } from "@frontend/modules/money/money.queries";
 import { useScope } from "@frontend/modules/money/scope";
 import { type ReactNode, useMemo, useState } from "react";
 import type { AccountInfo } from "../account.types";
-import { FeePanel } from "../fees/FeePanel";
 import { formatRatio, trailRows } from "../account.utils";
 import { DataTable } from "../components/DataTable";
 import { PeriodRow } from "../components/PeriodRow";
 import { LoadFailed, NothingYet, Refreshing } from "../components/TabStates";
+import { FeePanel } from "../fees/FeePanel";
 
 const W = ACCOUNT.worked;
 /** A long history is folded to this many lines until asked for. */
@@ -405,7 +405,7 @@ export const WorkedOutTab = ({ info, phone }: { info: AccountInfo; phone: boolea
 					<RiskCard returns={data} />
 
 					{/* What the manager is paid from outside the account changes what the return means. */}
-					<Box id="fee" sx={{ scrollMarginTop: 96 }}>
+					<Box id="manager-fee" sx={{ scrollMarginTop: 96 }}>
 						<FeePanel accountId={info.account.id} />
 					</Box>
 

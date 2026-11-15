@@ -158,7 +158,7 @@ export const AboutAccount = ({ info }: { info: AccountInfo }) => {
 				{/* Said only when one is set, or when the reader is the one who could set it. */}
 				{(account.fee || account.myLevel === "owner") && (
 					<Fact label={ACCOUNT.managerFee}>
-						<TextLink component={Link} to={{ search: "?tab=worked-out", hash: "#fee" }}>
+						<TextLink component={Link} to={{ search: "?tab=worked-out", hash: "#manager-fee" }}>
 							{account.fee ? ACCOUNT.managerFeeSee : ACCOUNT.managerFeeSet}
 						</TextLink>
 					</Fact>

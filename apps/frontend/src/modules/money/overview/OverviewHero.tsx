@@ -1,4 +1,3 @@
-import { FeeEffectNote } from "@frontend/modules/money/components/FeeEffectNote";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { formatDate, formatMonth } from "@connected-repo/ui-mui/format/date";
 import { Banner } from "@connected-repo/ui-mui/kosh/Banner";
@@ -10,6 +9,7 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import type { Returns } from "@connected-repo/zod-schemas/kosh/money.zod";
 import { MONEY } from "@frontend/copy/money.copy";
 import { OVERVIEW } from "@frontend/copy/overview.copy";
+import { FeeEffectNote } from "@frontend/modules/money/components/FeeEffectNote";
 import { Fragment, type ReactNode } from "react";
 import {
 	aheadSentence,

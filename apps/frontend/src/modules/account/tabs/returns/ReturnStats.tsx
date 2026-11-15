@@ -1,4 +1,3 @@
-import { FeeEffectNote } from "@frontend/modules/money/components/FeeEffectNote";
 import { formatMonth } from "@connected-repo/ui-mui/format/date";
 import { Money, Percent } from "@connected-repo/ui-mui/kosh/Money";
 import { SectionCard } from "@connected-repo/ui-mui/kosh/SectionCard";
@@ -7,6 +6,7 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { useMediaQuery, useTheme } from "@connected-repo/ui-mui/theme/useTheme";
 import type { Returns } from "@connected-repo/zod-schemas/kosh/money.zod";
 import { ACCOUNT } from "@frontend/copy/account.copy";
+import { FeeEffectNote } from "@frontend/modules/money/components/FeeEffectNote";
 import { countFlows } from "../../account.utils";
 
 /**

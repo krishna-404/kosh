@@ -1,4 +1,3 @@
-import { MONEY } from "@frontend/copy/money.copy";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Skeleton } from "@connected-repo/ui-mui/feedback/Skeleton";
 import { DivergingBar } from "@connected-repo/ui-mui/kosh/Bars";
@@ -7,6 +6,7 @@ import { Money, Percent } from "@connected-repo/ui-mui/kosh/Money";
 import { Tag } from "@connected-repo/ui-mui/kosh/Tag";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { GROUPS } from "@frontend/copy/groups.copy";
+import { MONEY } from "@frontend/copy/money.copy";
 import type { ReactNode } from "react";
 import { leaningOf } from "../groups.utils";
 import {
