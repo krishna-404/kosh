@@ -12,11 +12,21 @@ import {
 	detectStatement,
 } from "@connected-repo/broker-parsers/detect";
 import { findHeaderRow, type Sheet } from "@connected-repo/broker-parsers/table";
+import { parseTemplateCash, parseTemplateTrades } from "@connected-repo/broker-parsers/template/template";
+import type { ParseResult } from "@connected-repo/broker-parsers/types";
 import { parseZerodhaHoldings } from "@connected-repo/broker-parsers/zerodha/holdings";
-import { parseZerodhaLedger } from "@connected-repo/broker-parsers/zerodha/ledger";
+import {
+	parseZerodhaLedger,
+	type ZerodhaLedgerLine,
+	type ZerodhaLedgerMeta,
+} from "@connected-repo/broker-parsers/zerodha/ledger";
 import { classifyZerodhaLedgerLine } from "@connected-repo/broker-parsers/zerodha/ledger-classifier";
 import { validateZerodhaLedgerBalances } from "@connected-repo/broker-parsers/zerodha/ledger-validator";
-import { parseZerodhaTradebook } from "@connected-repo/broker-parsers/zerodha/tradebook";
+import {
+	parseZerodhaTradebook,
+	type ZerodhaTrade,
+	type ZerodhaTradebookMeta,
+} from "@connected-repo/broker-parsers/zerodha/tradebook";
 import type { CashFlowClassification } from "@connected-repo/zod-schemas/enums.zod";
 import type {
 	StatementPreview,
@@ -51,6 +61,7 @@ const BROKER_NAME: Record<string, string> = {
 	groww: "Groww",
 	dhan: "Dhan",
 	manual: "another broker",
+	template: "Kosh’s own layout",
 };
 
 type Problem = NonNullable<StatementPreview["problem"]>;
@@ -141,8 +152,11 @@ async function resolveInstruments(
 	return idByIsin;
 }
 
-async function analyzeTradebook(accountId: string, text: string): Promise<Analysis> {
-	const parsed = parseZerodhaTradebook(text);
+async function analyzeTradebook(
+	accountId: string,
+	parsed: ParseResult<ZerodhaTrade, ZerodhaTradebookMeta>,
+	broker: string,
+): Promise<Analysis> {
 	const errors = parsed.errors.map((e) => ({ row: e.row, message: e.message }));
 
 	const ids = parsed.rows.map((r) => r.brokerTradeId);
@@ -190,7 +204,7 @@ async function analyzeTradebook(accountId: string, text: string): Promise<Analys
 		problem: null,
 		meta: { segments: parsed.meta.segments },
 		write: async (batchId) => {
-			const instruments = await resolveInstruments(fresh, "zerodha");
+			const instruments = await resolveInstruments(fresh, broker);
 			for (const group of chunks(fresh)) {
 				const raws = await db.rawTrades
 					.createMany(
@@ -255,8 +269,20 @@ async function analyzeTradebook(accountId: string, text: string): Promise<Analys
 
 // ─── Ledger ─────────────────────────────────────────────────────────────
 
-async function analyzeLedger(accountId: string, text: string): Promise<Analysis> {
-	const parsed = parseZerodhaLedger(text);
+/** What Kosh takes a ledger line to be, when it is sure — and the rule that said so. */
+type Classify<TLine> = (line: TLine) => { classification: CashFlowClassification | null; rule: string };
+
+const zerodhaRule: Classify<ZerodhaLedgerLine> = (line) => {
+	const guess = classifyZerodhaLedgerLine(line);
+	// Kosh classifies only what it is sure of; the rest becomes a question.
+	return { classification: guess.confidence === "high" ? guess.classification : null, rule: guess.rule };
+};
+
+async function analyzeLedger<TLine extends ZerodhaLedgerLine>(
+	accountId: string,
+	parsed: ParseResult<TLine, ZerodhaLedgerMeta>,
+	classify: Classify<TLine>,
+): Promise<Analysis> {
 	const errors = parsed.errors.map((e) => ({ row: e.row, message: e.message }));
 	// The lines must reproduce the statement's own running balance, to the paisa.
 	const balance = validateZerodhaLedgerBalances(parsed.rows, parsed.meta);
@@ -282,16 +308,7 @@ async function analyzeLedger(accountId: string, text: string): Promise<Analysis>
 		});
 		const left = inAlready.get(hash) ?? 0;
 		if (left > 0) inAlready.set(hash, left - 1);
-		const guess = classifyZerodhaLedgerLine(line);
-		return {
-			line,
-			duplicate: left > 0,
-			// Kosh classifies only what it is sure of; the rest becomes a question.
-			classification: (guess.confidence === "high"
-				? guess.classification
-				: null) as CashFlowClassification | null,
-			rule: guess.rule,
-		};
+		return { line, duplicate: left > 0, ...classify(line) };
 	});
 	const fresh = entries.filter((e) => !e.duplicate);
 	const questions = fresh.filter((e) => e.classification === null).length;
@@ -332,7 +349,7 @@ async function analyzeLedger(accountId: string, text: string): Promise<Analysis>
 							credit: e.line.credit,
 							runningBalance: e.line.netBalance,
 							brokerVoucherId: null,
-							rawRow: { ...e.line },
+							rawRow: { ...e.line } as Record<string, unknown>,
 							lineNo: e.line.row,
 						})),
 					)
@@ -492,7 +509,7 @@ async function analyse(input: StatementUpload): Promise<Analysed> {
 		return stopped({
 			code: "unrecognised",
 			message:
-				"Kosh doesn’t recognise this file. For now it reads Zerodha’s tradebook, ledger and holdings statements, as downloaded from Console.",
+				"Kosh doesn’t recognise this file. It reads Zerodha’s tradebook, ledger and holdings statements as downloaded from Console, and — for any other broker — a table in Kosh’s own layout (date, type, symbol, isin, quantity, price for trades; date, description, money in, money out, balance for cash).",
 		});
 	if (detected.kind === "dividends")
 		return stopped(
@@ -503,7 +520,8 @@ async function analyse(input: StatementUpload): Promise<Analysed> {
 			},
 			detected,
 		);
-	if (account.broker !== "manual" && account.broker !== detected.broker)
+	// Kosh's own layout belongs to whichever account it is uploaded to.
+	if (detected.broker !== "template" && account.broker !== "manual" && account.broker !== detected.broker)
 		return stopped(
 			{
 				code: "wrong_broker",
@@ -532,6 +550,14 @@ async function analyse(input: StatementUpload): Promise<Analysed> {
 	let analysis: Analysis;
 	if (detected.kind === "holdings") {
 		analysis = await analyzeHoldings(account.id, sheet, input.asOf);
+	} else if (detected.broker === "template") {
+		analysis =
+			detected.kind === "tradebook"
+				? await analyzeTradebook(account.id, parseTemplateTrades(sheet.rows), account.broker)
+				: await analyzeLedger(account.id, parseTemplateCash(sheet.rows), (line) => ({
+						classification: line.what,
+						rule: line.what === null ? "unmatched" : "template_what",
+					}));
 	} else {
 		const header =
 			detected.kind === "tradebook"
@@ -545,8 +571,8 @@ async function analyse(input: StatementUpload): Promise<Analysed> {
 			);
 		analysis =
 			detected.kind === "tradebook"
-				? await analyzeTradebook(account.id, text)
-				: await analyzeLedger(account.id, text);
+				? await analyzeTradebook(account.id, parseZerodhaTradebook(text), detected.broker)
+				: await analyzeLedger(account.id, parseZerodhaLedger(text), zerodhaRule);
 	}
 
 	let problem = analysis.problem;
@@ -555,8 +581,8 @@ async function analyse(input: StatementUpload): Promise<Analysed> {
 			code: "has_errors",
 			message:
 				detected.kind === "ledger"
-					? "Some lines in this ledger can’t be read, or its balances don’t add up. Nothing will be added until the file is whole — download it again from your broker."
-					: `Some lines in this ${KIND_WORDS[detected.kind]} can’t be read. Nothing will be added until the file is whole — download it again from your broker.`,
+					? `Some lines in this ledger can’t be read, or its balances don’t add up. Nothing will be added until the file is whole — ${detected.broker === "template" ? "fix the lines listed and upload it again" : "download it again from your broker"}.`
+					: `Some lines in this ${KIND_WORDS[detected.kind]} can’t be read. Nothing will be added until the file is whole — ${detected.broker === "template" ? "fix the lines listed and upload it again" : "download it again from your broker"}.`,
 		};
 	if (!problem && analysis.summary.new === 0)
 		problem = {

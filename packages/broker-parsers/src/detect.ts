@@ -7,7 +7,8 @@ import { findHeaderRow, type Sheet } from "./table.js";
  *
  * Adding a broker or an export = adding a rule here and a parser beside it.
  */
-export type DetectedBroker = "zerodha";
+/** `template` is Kosh's own layout, for an account at any broker. */
+export type DetectedBroker = "zerodha" | "template";
 export type DetectedKind = "tradebook" | "ledger" | "holdings" | "dividends";
 
 export interface DetectedStatement {
@@ -45,6 +46,10 @@ const RULES: readonly Rule[] = [
 		kind: "holdings",
 		header: ["symbol", "isin", "quantity available", "average price"],
 	},
+	// Kosh's own layout (see template/template.ts) — after every broker's, so a
+	// real export is never mistaken for it.
+	{ broker: "template", kind: "tradebook", header: ["date", "type", "symbol", "isin", "quantity", "price"] },
+	{ broker: "template", kind: "ledger", header: ["date", "description", "money in", "money out", "balance"] },
 ];
 
 export function detectStatement(sheets: readonly Sheet[]): DetectedStatement | null {

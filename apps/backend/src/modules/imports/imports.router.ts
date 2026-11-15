@@ -6,6 +6,7 @@ import {
 	undoUpload,
 } from "@backend/modules/imports/services/import.service";
 import { rpcPortfolioProcedure } from "@backend/procedures/protected.procedure";
+import { TEMPLATE_CASH_EXAMPLE, TEMPLATE_TRADES_EXAMPLE } from "@connected-repo/broker-parsers/template/template";
 import {
 	historyZod,
 	statementAppliedZod,
@@ -52,4 +53,10 @@ const history = rpcPortfolioProcedure
 	.output(historyZod)
 	.handler(({ input }) => getHistory(input.accountId));
 
-export const importsRouter = { preview, apply, undo, list, history };
+// Kosh's own layout, for an account at a broker it has no reader for: two
+// small example tables to download, fill in and upload like any statement.
+const layouts = rpcPortfolioProcedure
+	.output(z.object({ trades: z.string(), cash: z.string() }))
+	.handler(() => ({ trades: TEMPLATE_TRADES_EXAMPLE, cash: TEMPLATE_CASH_EXAMPLE }));
+
+export const importsRouter = { preview, apply, undo, list, history, layouts };

@@ -106,6 +106,91 @@ describe("Statements", () => {
 		flows: await db.cashFlows.where({ isLive: true }).count(),
 	});
 
+	describe("an account at any other broker", () => {
+		// Kosh's own layout: two plain tables anyone can fill in from their broker's statement.
+		const TRADES = [
+			"My Groww account — trades",
+			"",
+			"Date,Type,Symbol,ISIN,Quantity,Price",
+			"02-04-2024,Buy,INFY,INE009A01021,10,\"1,480.50\"",
+			"02-04-2024,Buy,INFY,INE009A01021,10,\"1,480.50\"",
+			"17/09/2024,Sell,INFY,INE009A01021,4,1905",
+			"5 Nov 2024,buy,SOMEFUND,,25.5,40",
+		].join("\n");
+		const CASH = [
+			"date,description,money in,money out,balance,what",
+			"2024-04-01,Transfer from my bank,50000,,50000.00,put in",
+			"2024-04-03,Paid for shares bought on 2 April,,29640.00,20360.00,for trades",
+			"2024-06-30,Account maintenance charge,,354.00,20006.00,charges",
+			"2024-07-15,Something the statement did not explain,,6.00,20000.00,",
+			"2024-09-20,Sent back to my bank,,10000,10000.00,taken out",
+		].join("\n");
+		let groww: string;
+		beforeEach(async () => {
+			groww = (await anil.portfolio.createAccount({ personId: holderId, broker: "groww", label: "Anil Groww" })).id;
+		});
+
+		it("takes trades in Kosh's own layout, on any account, through the same check-then-apply", async () => {
+			const preview = await anil.imports.preview(file(groww, "trades.csv", TRADES));
+			expect(preview.detected).toEqual({ broker: "template", kind: "tradebook" });
+			expect(preview.summary).toEqual({ total: 4, new: 4, duplicate: 0, error: 0, questions: 1 }); // the fund has no ISIN
+			expect(preview.span).toEqual({ from: "2024-04-02", to: "2024-11-05" });
+
+			await anil.imports.apply(file(groww, "trades.csv", TRADES));
+			// Two identical fills on one day are two trades; the one with no ISIN waits for an answer.
+			expect(await db.trades.where({ accountId: groww, isLive: true }).count()).toBe(3);
+			const questions = await anil.questions.list({ accountId: groww });
+			expect(questions.map((q) => q.kind)).toEqual(["missing_isin"]);
+
+			// The same table again — even saved as a different file — adds nothing.
+			const again = await anil.imports.preview(file(groww, "trades copy.csv", `${TRADES}\n`));
+			expect(again.summary).toMatchObject({ new: 0, duplicate: 4 });
+			// It is not tied to a broker: the Zerodha account takes it too.
+			expect((await anil.imports.preview(file(zerodha, "trades.csv", TRADES))).canApply).toBe(true);
+		});
+
+		it("takes the cash table, uses what each line is said to be, and asks about the rest", async () => {
+			const preview = await anil.imports.preview(file(groww, "cash.csv", CASH));
+			expect(preview.detected).toEqual({ broker: "template", kind: "ledger" });
+			expect(preview.rows.map((r) => [r.amount, r.status])).toEqual([
+				["50000.00", "new"],
+				["-29640.00", "new"],
+				["-354.00", "new"],
+				["-6.00", "question"],
+				["-10000.00", "new"],
+			]);
+			await anil.imports.apply(file(groww, "cash.csv", CASH));
+			const flows = await db.cashFlows.where({ accountId: groww, isLive: true }).order({ flowDate: "ASC" }).select("classification", "amount");
+			expect(flows.map((f) => [f.classification, f.amount])).toEqual([
+				["external_deposit", "50000.00"],
+				["trade_settlement", "-29640.00"],
+				["charge", "-354.00"],
+				["external_withdrawal", "-10000.00"],
+			]);
+			expect((await anil.questions.list({ accountId: groww })).map((q) => q.kind)).toEqual(["ledger_line"]);
+			// Undo takes all of it back out, like any other upload.
+			const [upload] = await anil.imports.list({ accountId: groww });
+			await anil.imports.undo({ batchId: upload?.batchId as string });
+			expect(await db.cashFlows.where({ accountId: groww, isLive: true }).count()).toBe(0);
+		});
+
+		it("hands out the layout as two example tables that it reads back itself", async () => {
+			const { trades, cash } = await anil.imports.layouts();
+			expect((await anil.imports.preview(file(groww, "layout-trades.csv", trades))).canApply).toBe(true);
+			expect((await anil.imports.preview(file(groww, "layout-cash.csv", cash))).canApply).toBe(true);
+		});
+
+		it("refuses a table with a line it cannot read, saying which line and why", async () => {
+			const broken = CASH.replace("2024-06-30,Account maintenance charge,,354.00,20006.00", "2024-06-30,Account maintenance charge,,354.00,19000.00");
+			const preview = await anil.imports.preview(file(groww, "cash.csv", broken));
+			expect(preview).toMatchObject({ canApply: false, problem: { code: "has_errors" } });
+			expect(preview.problem?.message).toMatch(/fix the lines listed/);
+			const bad = await anil.imports.preview(file(groww, "trades.csv", TRADES.replace("17/09/2024", "someday")));
+			expect(bad.errors).toEqual([expect.objectContaining({ row: 3, message: expect.stringContaining("Can’t read the date") })]);
+			expect(bad.canApply).toBe(false);
+		});
+	});
+
 	describe("recognising a file", () => {
 		it("works out what a file is without being told", async () => {
 			const kinds = [];
