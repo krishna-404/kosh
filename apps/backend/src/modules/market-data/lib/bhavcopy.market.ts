@@ -78,3 +78,30 @@ export function parseBhavcopy(zip: Uint8Array): BhavRow[] {
 	}
 	return [...best.values()];
 }
+
+/** Words the exchange writes in capitals that are not acronyms are set in ordinary case; these stay as they are. */
+const KEEP_UPPER = new Set([
+	"ICICI", "ITC", "SBI", "LIC", "IDFC", "IDBI", "HCL", "ONGC", "GAIL", "SAIL", "UPL", "DLF", "IRCTC", "ETF", "NIFTY",
+	"UTI", "AU", "IIFL", "REC", "PFC", "NHPC", "IOB", "UCO", "AIA", "IT", "II", "III", "IV",
+]);
+const SMALL = new Set(["of", "and", "the", "for", "in"]);
+
+/**
+ * The exchange's name for a company ("BHARTI AIRTEL LIMITED") as a person
+ * would write it ("Bharti Airtel Ltd"). Acronyms it can recognise — a word
+ * with no vowel, or one on the short list above — keep their capitals.
+ */
+export function companyName(raw: string): string {
+	return raw
+		.trim()
+		.split(/\s+/)
+		.map((word, index) => {
+			const bare = word.replace(/[^A-Za-z]/g, "").toUpperCase();
+			if (bare === "LIMITED" || bare === "LTD") return "Ltd";
+			if (KEEP_UPPER.has(bare) || (bare.length >= 2 && bare.length <= 5 && !/[AEIOUY]/.test(bare))) return word.toUpperCase();
+			const lower = word.toLowerCase();
+			if (index > 0 && SMALL.has(lower)) return lower;
+			return lower.replace(/(^|[-&(/.])([a-z])/g, (_match, lead: string, letter: string) => lead + letter.toUpperCase());
+		})
+		.join(" ");
+}

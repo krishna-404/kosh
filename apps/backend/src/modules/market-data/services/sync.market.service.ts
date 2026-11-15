@@ -8,7 +8,7 @@ import {
 import { settleDividends } from "@backend/modules/dividends/services/dividends.service";
 import { adoptIsin, shareLineOf } from "@backend/modules/instruments/services/isin.instruments.service";
 import { logger } from "@backend/utils/logger.utils";
-import { bhavcopyUrls, parseBhavcopy } from "../lib/bhavcopy.market";
+import { bhavcopyUrls, companyName, parseBhavcopy } from "../lib/bhavcopy.market";
 import { AMFI_NAV_ALL_URL, mfapiUrl, parseAmfiNavAll, parseMfapi } from "../lib/funds.market";
 import { fetchMarketFile } from "./fetcher.market";
 
@@ -194,8 +194,10 @@ async function fetchBhavcopies(
 async function applyBhavcopies(today: string, report: SyncReport): Promise<void> {
 	const instruments = await db.instruments
 		.whereSql`"tracked_since" IS NOT NULL AND "isin" IS NOT NULL AND ("price_source" IS NULL OR "price_source" = 'nse')`
-		.select("id", "isin", "priceSource", "trackedSince", "pricedThrough");
+		.select("id", "isin", "priceSource", "trackedSince", "pricedThrough", "name", "symbolCanonical");
 	if (instruments.length === 0) return;
+	// A statement names a share only by its symbol; the price file knows the company.
+	const named = new Map<string, string>();
 
 	const from = instruments.map((i) => i.trackedSince as string).sort()[0] as string;
 	const held = await db.providerPayloads
@@ -230,7 +232,13 @@ async function applyBhavcopies(today: string, report: SyncReport): Promise<void>
 			if (!file.content) continue;
 			let closes: Map<string, string>;
 			try {
-				closes = new Map(parseBhavcopy(file.content).map((row) => [row.isin, row.close]));
+				const rows = parseBhavcopy(file.content);
+				closes = new Map(rows.map((row) => [row.isin, row.close]));
+				for (const i of instruments) {
+					if (i.name !== i.symbolCanonical || named.has(i.id)) continue;
+					const row = rows.find((r) => r.isin === i.isin && r.name);
+					if (row?.name) named.set(i.id, companyName(row.name));
+				}
 			} catch (error) {
 				report.problems.push(`Could not read the bhavcopy for ${file.key}: ${error}`);
 				continue;
@@ -270,6 +278,8 @@ async function applyBhavcopies(today: string, report: SyncReport): Promise<void>
 		}
 		report.barsWritten += await insertBars(bars);
 	}
+
+	for (const [id, name] of named) await db.instruments.where({ id }).update({ name });
 
 	for (const i of instruments) {
 		// Move the frontier to the last day before the first one not fetched yet.

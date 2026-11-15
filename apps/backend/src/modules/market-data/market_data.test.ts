@@ -5,6 +5,7 @@ import { defaultContext } from "@backend/test/setup";
 import { createRouterClient } from "@orpc/server";
 import { zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { companyName } from "./lib/bhavcopy.market";
 import { type FetchedFile, useMarketFetcher } from "./services/fetcher.market";
 import { closeOn, closeOnOrAfter, listBenchmarks, loadCloses } from "./services/prices.market.service";
 import { syncMarketData } from "./services/sync.market.service";
@@ -59,6 +60,19 @@ const NAV_HISTORY: Record<string, Buffer> = {
 	"100822": navs([["01-07-2024", "150.00"], ["04-07-2024", "151.00"], ["10-07-2024", "153.00"]]),
 	"114616": navs([["04-07-2024", "28.00"], ["10-07-2024", "28.50"]]),
 };
+
+describe("company names", () => {
+	it("are set the way a person would write them, keeping what it can tell are acronyms", () => {
+		expect(companyName("BHARTI AIRTEL LIMITED")).toBe("Bharti Airtel Ltd");
+		expect(companyName("HDFC BANK LTD")).toBe("HDFC Bank Ltd");
+		expect(companyName("ICICI BANK LIMITED")).toBe("ICICI Bank Ltd");
+		expect(companyName("TATA CONSULTANCY SERV LT")).toBe("Tata Consultancy Serv LT");
+		expect(companyName("STATE BANK OF INDIA")).toBe("State Bank of India");
+		expect(companyName("LARSEN & TOUBRO LTD.")).toBe("Larsen & Toubro Ltd");
+		expect(companyName("  ITC   LIMITED ")).toBe("ITC Ltd");
+		expect(companyName("NIPPON INDIA ETF GOLD BEES")).toBe("Nippon India ETF Gold Bees");
+	});
+});
 
 describe("Market data", () => {
 	let calls: string[];
@@ -130,6 +144,8 @@ describe("Market data", () => {
 		// ALPHAX: bought on the 5th, so priced from the 5th — the 4th is not asked for.
 		const alphax = await closes(ALPHAX);
 		expect(alphax.priceSource).toBe("nse");
+		// The statement named it only by its symbol; the price file gives the company.
+		expect(await db.instruments.where({ isin: ALPHAX }).get("name")).toBe("Alphax Ltd");
 		expect(alphax.bars).toEqual([
 			["2024-07-05", 101.5],
 			["2024-07-08", 103],

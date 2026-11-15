@@ -260,7 +260,7 @@ describe("Money", () => {
 
 		const script = await anil.money.script({ ...account(anilAccount), instrumentId: h.holdings[0]?.instrumentId as string });
 		expect(script.trades).toEqual([
-			{ date: "2024-01-02", side: "buy", quantity: "100", price: "500", value: "50000.00", accountLabel: "Anil · Zerodha" },
+			{ date: "2024-01-02", side: "buy", quantity: "100", price: "500", value: "50000.00", accountLabel: "Anil · Zerodha", accountId: anilAccount },
 		]);
 		expect(script.chart.closes.at(-1)).toBe(600);
 	});

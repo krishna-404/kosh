@@ -176,8 +176,14 @@ export async function listQuestions(input: { accountId?: string }): Promise<Ques
 /** How many questions wait on each account, for people who could answer them. */
 export async function countQuestions(): Promise<Map<string, number>> {
 	const counts = new Map<string, number>();
-	for (const q of await listQuestions({}))
-		if (q.canAnswer) counts.set(q.account.id, (counts.get(q.account.id) ?? 0) + 1);
+	const add = (accountId: string) => counts.set(accountId, (counts.get(accountId) ?? 0) + 1);
+	for (const q of await listQuestions({})) {
+		if (!q.canAnswer) continue;
+		add(q.account.id);
+		// A transfer is listed on both accounts it touches, so it counts on both —
+		// the number beside an account is the number of questions shown on it.
+		if (q.kind === "transfer" && q.out.account.id !== q.account.id) add(q.out.account.id);
+	}
 	return counts;
 }
 
