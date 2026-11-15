@@ -7,8 +7,12 @@ Model lineage: transaction/unit design adapted from Portfolio Performance (see [
 ## 1. People, accounts, groups
 
 ```
+families                    -- the household; the tenant every row below belongs to
+  id, name, created_at
+  -- one is created per user at sign-up; users.family_id → families (a login has exactly one)
+
 persons                     -- family members as portfolio subjects (not logins)
-  id, family_id (→teams ⚠ pending grilling #2), display_name, created_at
+  id, family_id →families, display_name, created_at
 
 broker_accounts
   id, family_id, person_id →persons, broker enum('zerodha','dhan','groww','manual', ...),
@@ -22,7 +26,7 @@ account_group_members
   group_id →account_groups, account_id →broker_accounts, PK(group_id, account_id)
 ```
 
-Invariants: an account belongs to exactly one person; groups are arbitrary subsets (an account may be in many groups); "whole family" is a virtual group (all accounts), not a row.
+Invariants: `family_id` is never supplied by a caller — it is stamped from the signed-in user's family on insert and applied as a default filter on every read; an account belongs to exactly one person; groups are arbitrary subsets (an account may be in many groups); "whole family" is a virtual group (all accounts), not a row.
 
 ## 2. Layer 1 — raw imports
 

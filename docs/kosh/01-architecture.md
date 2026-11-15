@@ -17,10 +17,10 @@ apps/
   backend/src/modules/
     auth/                  # KEEP (Better Auth) — unchanged
     users/                 # KEEP
-    teams/                 # KEEP, pending access-model grilling (family = team candidate)
-    files/ cdn/            # KEEP — statement uploads ride the existing file infra
+    teams/                 # REMOVED (app teams). Only tables/teams_api.table.ts remains — external API keys, unrelated
+    files/ cdn/            # KEEP (server side only) — the offline upload pipeline that fed them is gone
     notifications/         # KEEP (Novu) — action-needed prompts, dividend confirmations
-    portfolio/             # NEW — broker accounts, account groups, persons
+    portfolio/             # NEW — families (the tenant), persons, broker accounts, account groups
     imports/               # NEW — import batches, parsers, validation gate, quarantine
     instruments/           # NEW — instrument master, aliases, identity links
     corporate-actions/     # NEW — event log, application state, prompt queue
@@ -40,7 +40,7 @@ packages/
   ui-mui/                  # KEEP
 ```
 
-**Offline-first sync (Dexie/IndexedDB, pull-bundles, service-worker sync): NOT used for portfolio data.** Portfolio analytics are server-computed over the full ledger; a partial offline copy would show wrong numbers. The PWA shell stays (installability, notifications); the sync worker infrastructure remains compiling but unwired for Kosh entities. (If an offline read-only dashboard snapshot is ever wanted, it's a cached API response, not a synced database.)
+**Kosh is online-only (decision 2026-11-15).** The boilerplate's offline-first layer — Dexie/IndexedDB, the Data/Media web workers, OPFS blob storage, pull-bundle sync endpoints and the silent-sync push — has been removed, not merely left unwired. Portfolio analytics are server-computed over the full ledger; a partial offline copy would show wrong numbers. The service worker stays for installability, the update prompt and push notifications. (If an offline read-only dashboard snapshot is ever wanted, it's a cached API response, not a synced database.)
 
 ## 3. The three-layer data architecture
 
@@ -99,9 +99,11 @@ A file is applied **atomically or not at all**. Failures land in `import_quarant
 
 ## 5. Security & tenancy
 
-- Statements are sensitive financial documents: stored via the existing files module, encrypted at rest (storage-level), scoped to the family (team) with the existing strict `teamId` scoping patterns (ADR-012).
+- **The tenant is the family** (decision 2026-11-15, replacing "family = team"). `families` is a plain table; each login has exactly one via `users.family_id`, created at sign-up. Every portfolio row carries `family_id`, stamped from the request context on insert and applied as a default query scope, so a handler cannot read or write another family's data by accident. There is no workspace switching, membership table, role or `x-team-id` header.
+- More than one login per household (spouse, fund manager) is a later milestone: it is a second `users` row pointing at the same family, plus a role. A person who needs access to *several* households is the one case this model does not cover; it would need a membership table then.
+- Statements are sensitive financial documents: scoped to the family and encrypted at rest (storage-level).
 - No broker credentials exist in v1 (file drop only). When the API phase arrives, tokens get envelope encryption + a dedicated secrets table — out of scope now.
-- Multi-family (multi-tenant) support comes free from the teams module *if* the access-model grilling confirms family=team.
+- Several families can share one deployment safely (each sees only its own rows); there is simply no UI for moving between them.
 
 ## 6. Frontend architecture
 
@@ -113,7 +115,7 @@ A file is applied **atomically or not at all**. Failures land in `import_quarant
 
 ## 7. Open architecture questions (tracked on the map)
 
-- Family/login/permission model → [Grilling: Family, accounts & access model](https://github.com/krishna-404/family-portfolio-tracker/issues/2).
+- Second logins for a household (family members, fund-manager role) → roadmap M8; the tenant model is settled (§5).
 - Foreign/crypto platforms, FX-rate source, benchmark set for foreign sleeves → [Grilling: Foreign assets, crypto & currency model](https://github.com/krishna-404/family-portfolio-tracker/issues/15).
 - Remaining asset classes (MFs beyond CAS, bonds, SGBs, manual assets) → [Grilling: Asset-class scope](https://github.com/krishna-404/family-portfolio-tracker/issues/4).
 - Sharpe parameters and fee-schedule shapes → [Grilling: Metrics & date-range semantics](https://github.com/krishna-404/family-portfolio-tracker/issues/5).

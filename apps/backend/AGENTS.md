@@ -6,16 +6,17 @@
 
 **Key Architectures**:
 - **Event-Driven**: `pg-tbus` for async tasks (notifications, usage tracking) and events.
-- **Delta Sync**: Client-pull `pullBundles` procedures over the generic two-cursor `syncDeltaService`. There is NO SSE and no ORM-hook push channel.
+- **Online-only API**: plain request/response oRPC. There is no sync protocol, no pull-bundle endpoints and no silent-push cron.
 - **Backward Compatibility**: N-1 frontend support; additive-only migrations; two-step deletions.
-- **Dual Team Model**: `teams_app` (Session/UI) vs `teams_api` (Key/External).
+- **Family Tenancy**: every portfolio table carries `family_id` (→ `families`). `rpcFamilyProcedure` resolves the caller's family from `users.family_id` and runs the handler inside an AsyncLocalStorage scope; `t.koshFamilyId()` stamps it on insert and each table's default scope filters on it. Handlers never pass or check `familyId`. There are no teams, roles or `x-team-id` header.
+- **External API keys**: `teams_api` (key-authenticated OpenAPI consumers) is a separate, unrelated tenancy.
 
 ---
 
 ## 2. Active Task
-**Context**: Robust Boilerplate Standardization (Plan 005).
-**Current Status**: Completed restoring advanced patterns (Push notifications, Cron scheduling, Security hardening).
-**Intent**: Ready for next phase of MVP development (User Schedules).
+**Context**: Foundation simplification — sync protocol and teams module removed; `families` is the tenant.
+**Current Status**: Completed. The import pipeline is covered by DB-level tests (`modules/imports/zerodha_import.test.ts`) and tenancy by `modules/portfolio/portfolio.test.ts`.
+**Intent**: Ready for the first usable slice (accounts + import UI, fund-flow XIRR).
 
 ---
 
@@ -24,9 +25,10 @@
 |---|---|---|---|
 | [ADR-B01] | Additive Migrations | Accepted | Never rename/drop in one deployment to avoid downtime. |
 | [ADR-B02] | Mutex Cron | Accepted | Prevent concurrent cron runs via a Postgres advisory lock (`pg_try_advisory_xact_lock`), safe across replicas. |
-| [ADR-B03] | Soft Delete | Accepted | Mandatory for sync compatibility (use `deletedAt` field). |
-| [ADR-B04] | Files Sync Rationale | Accepted | Use .merge() on create to backup asynchronous metadata. |
-| [ADR-B05] | Backend Hardening | Accepted | Strict SSRF guards on webhooks, dummy hashes for API keys, and server-owned teamId scoping. |
+| [ADR-B03] | Soft Delete | Superseded | Was mandatory for sync tombstones. Kosh ledger tables never delete: retraction is a superseding event (docs/kosh/01-architecture.md §3). |
+| [ADR-B04] | Files Merge On Create | Accepted | Use .merge() on create to capture asynchronous metadata. |
+| [ADR-B05] | Backend Hardening | Accepted | Strict SSRF guards on webhooks, dummy hashes for API keys, and server-owned `familyId` scoping. |
+| [ADR-B06] | Tenant Column Is A Runtime Default | Accepted | Never put a `setOnCreate` column on a table whose `id` uses `ulidWithDefault()` — orchid-orm 1.73 swaps the two values on insert. `koshFamilyId` uses a runtime default instead (see `db/base_table.ts`). |
 
 ## Technical Guidelines
 
@@ -44,16 +46,17 @@ src/
 
 ### Database & Migrations
 - **Auto-Gen**: `yarn db g <name>` is MANDATORY.
-- **Descriptive IDs**: `userId`, `teamId` (PascalCase class, snake_case columns).
-- **Sync**: Expose a `pullBundles` procedure per synced table backed by `syncDeltaService`; clients pull deltas (no ORM-hook push).
+- **Descriptive IDs**: `userId`, `familyId` (PascalCase class, snake_case columns).
+- **Family-scoped tables**: add `familyId: t.koshFamilyId()` and the `scopes.default` familyId filter (copy `persons.table.ts`).
 
 ### oRPC Endpoints
 ```typescript
-export const create = rpcProtectedProcedure
+// Portfolio data: rpcFamilyProcedure — family is stamped and filtered for you.
+export const create = rpcFamilyProcedure
   .input(schema)
-  .handler(async ({ input, context }) => {
-    return db.table.create({ ...input, authorUserId: context.user.id });
-  });
+  .handler(({ input }) => db.persons.create(input));
+
+// Session only, no portfolio data: rpcProtectedProcedure.
 ```
 
 ### Event Bus (pg-tbus)
@@ -65,7 +68,7 @@ export const create = rpcProtectedProcedure
 - **Procedures**: Use `rpcSensitiveProcedure` for data-destructive actions.
 
 ### Testing
-- **Vitest**: Test all CRUD operations. Use `createTestUserAndSession` for auth context.
+- **Vitest**: Test all CRUD operations against the real test database. `defaultContext` (from `test/setup.ts`) is a signed-in user with their own family; `createUserAndLogin()` makes another. Call services directly inside `requestContext.run({ familyId, userId }, ...)`.
 
 ## Quick Reference
 - **DB**: `yarn db g <name>`, `yarn db up`, `yarn db seed`
