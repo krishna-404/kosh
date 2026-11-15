@@ -89,6 +89,11 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 			{
 				element: <AppShell />,
 				loader: authLoader,
+				// A change of filter, scope, period or tab only rewrites the query
+				// string. Fetching the session again for each one made every such
+				// control wait a round trip before it answered.
+				shouldRevalidate: ({ currentUrl, nextUrl, defaultShouldRevalidate }) =>
+					currentUrl.pathname === nextUrl.pathname ? false : defaultShouldRevalidate,
 				children: [
 					page(ROUTES.overview, () => import("@frontend/modules/money/pages/Overview.page")),
 					page(ROUTES.holdings, () => import("@frontend/modules/money/pages/Holdings.page")),

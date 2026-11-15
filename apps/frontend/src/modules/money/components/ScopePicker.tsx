@@ -28,21 +28,23 @@ export const useScopeChoices = () => {
 	const groups = useMyGroups();
 	const holders = directory.data?.holders ?? [];
 	const accounts = directory.data?.accounts ?? [];
+	const holderChoice = (h: (typeof holders)[number]): ScopeChoice => ({
+		scope: { kind: "holder", id: h.id },
+		label: MONEY.allOf(possessive(h.displayName)),
+		hint: MONEY.accounts(accounts.filter((a) => a.personId === h.id).length),
+	});
 	return {
 		isPending: directory.isPending || groups.isPending,
+		/** Every person is a real selection, whether or not the picker offers them. */
+		everyHolder: holders.map(holderChoice),
 		groups: (groups.data ?? []).map<ScopeChoice>((g) => ({
 			scope: { kind: "group", id: g.id },
 			label: g.name,
 			hint: MONEY.accounts(g.accountIds.length),
 		})),
-		// A person is worth offering only when they hold more than one account here.
-		holders: holders
-			.filter((h) => accounts.filter((a) => a.personId === h.id).length > 1)
-			.map<ScopeChoice>((h) => ({
-				scope: { kind: "holder", id: h.id },
-				label: MONEY.allOf(possessive(h.displayName)),
-				hint: MONEY.accounts(accounts.filter((a) => a.personId === h.id).length),
-			})),
+		// A person is worth offering only when they hold more than one account here
+		// (with one, choosing the account says the same thing).
+		holders: holders.filter((h) => accounts.filter((a) => a.personId === h.id).length > 1).map(holderChoice),
 		accounts: accounts.map<ScopeChoice>((a) => ({ scope: { kind: "account", id: a.id }, label: a.label })),
 	};
 };
@@ -51,7 +53,7 @@ export const useScopeChoices = () => {
 export const useScopeLabel = (scope: Scope): { label: string | null; isPending: boolean } => {
 	const choices = useScopeChoices();
 	if (scope.kind === "everything") return { label: MONEY.everything, isPending: false };
-	const found = [...choices.groups, ...choices.holders, ...choices.accounts].find((c) => sameScope(c.scope, scope));
+	const found = [...choices.groups, ...choices.everyHolder, ...choices.accounts].find((c) => sameScope(c.scope, scope));
 	return { label: found?.label ?? null, isPending: choices.isPending };
 };
 

@@ -212,6 +212,8 @@ export const scriptZod = z.object({
 			price: z.string(),
 			value: z.string(),
 			accountLabel: z.string(),
+			/** So a trade can link to the account it was made in. */
+			accountId: z.string().optional(),
 		}),
 	),
 	chart: z.object({ dates: z.array(z.string()), closes: z.array(z.number()) }),

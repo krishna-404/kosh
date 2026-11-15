@@ -198,7 +198,7 @@ export const LineChart = ({
 	if (dates.length === 0 || series.length === 0) return null;
 
 	return (
-		<Box sx={[{ minWidth: 0 }, ...(Array.isArray(sx) ? sx : [sx])]}>
+		<Box sx={[{ minWidth: 0, position: "relative" }, ...(Array.isArray(sx) ? sx : [sx])]}>
 			{!hideLegend && series.length > 1 && (
 				<Box component="ul" sx={{ display: "flex", flexWrap: "wrap", gap: 2, p: 0, m: 0, mb: 1, listStyle: "none" }}>
 					{series.map((s) => (
@@ -391,7 +391,8 @@ export const LineChart = ({
 							fontVariantNumeric: "tabular-nums",
 							whiteSpace: "nowrap",
 						},
-						"& th:first-of-type, & td:first-of-type": { textAlign: "left" },
+						// The date column only: its heading and each row's own heading cell.
+						"& thead th:first-of-type, & tbody th": { textAlign: "left" },
 						"& thead th": { color: theme.vars.palette.text.secondary, fontWeight: 600, position: "sticky", top: 0, bgcolor: theme.vars.palette.kosh.surface },
 					})}
 				>
@@ -421,10 +422,14 @@ export const LineChart = ({
 	);
 };
 
+// Sizes are strings: in `sx`, the number 1 for a width means 100%.
 const visuallyHidden = {
 	position: "absolute",
-	width: 1,
-	height: 1,
+	width: "1px",
+	height: "1px",
+	margin: "-1px",
+	padding: 0,
+	border: 0,
 	overflow: "hidden",
 	clip: "rect(0 0 0 0)",
 	clipPath: "inset(50%)",

@@ -36,6 +36,10 @@ type AssetClass = Holding["assetClass"];
 const assetClassOf = (kind: string, name: string, symbol: string): AssetClass => {
 	const gold = /gold/i.test(name) || /gold/i.test(symbol);
 	if (kind === "sgb" || kind === "commodity" || ((kind === "etf" || kind === "mf") && gold)) return "gold";
+	// A statement does not say a line is an exchange-traded fund; its name does
+	// (NIFTYBEES, an "… ETF"). Listed as a share, it is still a fund.
+	const fund = /BEES$|ETF/i.test(symbol) || /\bETF\b|exchange traded/i.test(name);
+	if (kind === "equity" && fund) return gold ? "gold" : "funds";
 	if (kind === "equity" || kind === "reit_invit") return gold ? "gold" : "stocks";
 	if (kind === "etf" || kind === "mf") return "funds";
 	if (kind === "bond") return "bonds";
@@ -198,6 +202,7 @@ export async function getScript(scopeInput: Scope, instrumentId: string): Promis
 					price: String(t.price),
 					value: money(t.value),
 					accountLabel: labels.get(s.accountId)?.label ?? "An account",
+					accountId: s.accountId,
 				})),
 		)
 		.sort((a, b) => b.date.localeCompare(a.date));

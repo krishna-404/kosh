@@ -10,6 +10,12 @@ import { useShellSlots } from "./shell.context";
 interface PageProps {
 	/** The page's name — also the browser tab title and the phone app-bar title. */
 	title: string;
+	/**
+	 * What the desktop h1 says when it is not the page's name — the Overview
+	 * greets by name ("Good evening, Anil") while its tab and app bar still
+	 * say "Overview".
+	 */
+	heading?: string;
 	/** One sentence under the title: what this page is for. */
 	subtitle?: ReactNode;
 	eyebrow?: ReactNode;
@@ -27,7 +33,7 @@ interface PageProps {
  * name where each layout wants it: an h1 on desktop, the app bar on a phone,
  * and the browser tab everywhere.
  */
-export const Page = ({ title, subtitle, eyebrow, actions, barAction, back, children }: PageProps) => {
+export const Page = ({ title, heading, subtitle, eyebrow, actions, barAction, back, children }: PageProps) => {
 	const slots = useShellSlots();
 	const navigate = useNavigate();
 
@@ -47,7 +53,7 @@ export const Page = ({ title, subtitle, eyebrow, actions, barAction, back, child
 					slots.leading,
 				)}
 			{slots.action && barAction && createPortal(barAction, slots.action)}
-			<PageHeader title={title} subtitle={subtitle} eyebrow={eyebrow} actions={actions} />
+			<PageHeader title={heading ?? title} subtitle={subtitle} eyebrow={eyebrow} actions={actions} />
 			{children}
 		</Box>
 	);
