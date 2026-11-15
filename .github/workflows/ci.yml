@@ -13,7 +13,8 @@ concurrency:
 jobs:
   ci:
     name: Build, type-check & test
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: see the e2e job.
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -71,7 +72,11 @@ jobs:
 
   e2e:
     name: E2E (Playwright)
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: that label moved to Ubuntu 26.04, which the
+    # pinned Playwright (1.58) has no browser build for — `playwright install`
+    # fails with "does not support chromium on ubuntu26.04-x64". Move this
+    # forward together with a Playwright upgrade.
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
