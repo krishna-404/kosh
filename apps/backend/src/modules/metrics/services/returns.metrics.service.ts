@@ -258,6 +258,37 @@ export function shadowOf(core: Core, w: Window, prices: CloseSeries | undefined)
 	return { value, xirr: rate, availableFrom: first > firstNeeded ? first : null, steps };
 }
 
+export interface AccountSummary {
+	value: string | null;
+	xirr: number | null;
+	/** NIFTY's return on the same money. */
+	benchmarkXirr: number | null;
+}
+
+/**
+ * Value, return and NIFTY's return on the same money for each account on
+ * its own, since it started — what lists of accounts show beside each row.
+ * All null for an account with nothing in it yet.
+ */
+export async function summarizeAccounts(accountIds: readonly string[]): Promise<Map<string, AccountSummary>> {
+	const out = new Map<string, AccountSummary>();
+	if (accountIds.length === 0) return out;
+	const { list, closes } = await loadBenchmarks();
+	const nifty = list.find((b) => b.slug === "nifty50");
+	for (const id of accountIds) {
+		const selection = await loadSelection([id]);
+		if (selection.start === null) {
+			out.set(id, { value: null, xirr: null, benchmarkXirr: null });
+			continue;
+		}
+		const w = windowFor(selection, "all");
+		const core = coreReturns(selection, w);
+		const shadow = nifty ? shadowOf(core, w, closes.get(nifty.instrumentId)) : null;
+		out.set(id, { value: money(core.closing), xirr: core.xirr, benchmarkXirr: shadow?.xirr ?? null });
+	}
+	return out;
+}
+
 const sumIn = (items: { date: string; amount: number }[], w: Window): number =>
 	items.reduce((sum, i) => (i.date > w.from && i.date <= w.to ? sum + i.amount : sum), 0);
 

@@ -52,7 +52,12 @@ export interface KoshColors {
 	// Gains and losses
 	pos: string;
 	neg: string;
-	// Chart series
+	// Chart series — a fixed order, never cycled. Checked as a set for
+	// colour-blind separation, lightness and contrast on each scheme's
+	// surface; change one and the set has to be checked again. (Light: the
+	// account's green is a touch more saturated than the brand green so it
+	// does not read as grey beside the others. Gold sits under 3:1 on white,
+	// which is why a line is never identified by colour alone.)
 	seriesYou: string;
 	seriesNifty: string;
 	seriesGold: string;
@@ -109,7 +114,7 @@ export const lightColors: KoshColors = {
 	dangerText: "#A1260F",
 	pos: "#076350",
 	neg: "#A1260F",
-	seriesYou: "#0B7A63",
+	seriesYou: "#0A8168",
 	seriesNifty: "#3D6FE0",
 	seriesGold: "#E0A100",
 	seriesAlt: "#8A5CF0",
@@ -162,10 +167,10 @@ export const darkColors: KoshColors = {
 	dangerText: "#FFADA4",
 	pos: "#8BE8D0",
 	neg: "#FFADA4",
-	seriesYou: "#4FD1B0",
-	seriesNifty: "#8EA8F0",
-	seriesGold: "#E2B15B",
-	seriesAlt: "#C7A0EA",
+	seriesYou: "#27A788",
+	seriesNifty: "#6887E2",
+	seriesGold: "#BC8A20",
+	seriesAlt: "#A277D4",
 	onSeries: "#0E1714",
 	heroBg: "#11493D",
 	heroInk: "#F2FFF9",

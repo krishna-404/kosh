@@ -146,6 +146,24 @@ describe("Money", () => {
 		expect(r.flags).toMatchObject({ empty: false, accountsWithoutLedger: 0, unpricedHoldings: 0 });
 	});
 
+	it("puts the same figures beside each account wherever accounts are listed", async () => {
+		const r = await anil.money.returns(account(anilAccount));
+		const nifty = r.benchmarks.find((b) => b.slug === "nifty50");
+
+		const listed = (await anil.portfolio.directory()).accounts.find((a) => a.id === anilAccount);
+		expect(listed?.value).toBe(r.value);
+		expect(listed?.xirr).toBeCloseTo(r.xirr as number, 9);
+		expect(listed?.benchmarkXirr).toBeCloseTo(nifty?.xirr as number, 9);
+
+		const grid = await anil.access.matrix();
+		expect(grid.holders.flatMap((h) => h.accounts).find((a) => a.id === anilAccount)?.value).toBe(r.value);
+
+		// An account nothing has been uploaded to has no figures — not zeros.
+		const empty = await anil.portfolio.createAccount({ personId: anilHolder, broker: "groww", label: "Anil · Empty" });
+		const blank = (await anil.portfolio.directory()).accounts.find((a) => a.id === empty.id);
+		expect(blank).toMatchObject({ value: null, xirr: null, benchmarkXirr: null });
+	});
+
 	it("says what moved the money: put in, taken out, what prices did, what it cost", async () => {
 		const { moved } = await anil.money.returns(account(anilAccount));
 		expect(moved).toEqual({

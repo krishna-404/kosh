@@ -1,4 +1,5 @@
 import { db } from "@backend/db/db";
+import { summarizeAccounts } from "@backend/modules/metrics/services/returns.metrics.service";
 import {
 	atLeast,
 	effectiveLevel,
@@ -106,6 +107,7 @@ export async function getDirectory(me: {
 	const latestUpload = new Map<string, (typeof uploads)[number]>();
 	for (const u of uploads) if (!latestUpload.has(u.accountId)) latestUpload.set(u.accountId, u);
 	const waiting = await countQuestions();
+	const money = await summarizeAccounts(accounts.map((a) => a.id));
 
 	const users = await usersById([
 		...myGrants.map((g) => g.grantedByUserId),
@@ -179,9 +181,7 @@ export async function getDirectory(me: {
 						: null,
 					isNew: sharer !== undefined && giving.seenAt === null,
 					access,
-					value: null,
-					xirr: null,
-					benchmarkXirr: null,
+					...(money.get(a.id) ?? { value: null, xirr: null, benchmarkXirr: null }),
 					updated: (() => {
 						const upload = latestUpload.get(a.id);
 						return upload?.appliedAt
@@ -213,6 +213,7 @@ export async function getAccessMatrix(meId: string): Promise<AccessMatrix> {
 			.select("id", "personId", "label", "broker", "brokerName")
 	).filter((a) => atLeast(ctx.accountLevels.get(a.id), "owner"));
 	if (accounts.length === 0) return { holders: [], people: [] };
+	const money = await summarizeAccounts(accounts.map((a) => a.id));
 
 	const holderIds = [...new Set(accounts.map((a) => a.personId))];
 	const holders = await db.persons
@@ -258,7 +259,7 @@ export async function getAccessMatrix(meId: string): Promise<AccessMatrix> {
 			ownsHolder: atLeast(ctx.personLevels.get(h.id), "owner"),
 			accounts: accounts
 				.filter((a) => a.personId === h.id)
-				.map(({ personId: _personId, ...a }) => ({ ...a, value: null })),
+				.map(({ personId: _personId, ...a }) => ({ ...a, value: money.get(a.id)?.value ?? null })),
 		})),
 		// The caller first, then people who have signed in, then invites.
 		people: [...people.values()].sort(

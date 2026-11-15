@@ -77,6 +77,10 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 				children: [
 					page(ROUTES.overview, () => import("@frontend/modules/money/pages/Overview.page")),
 					page(ROUTES.holdings, () => import("@frontend/modules/money/pages/Holdings.page")),
+					page(
+						`${ROUTES.holdings}/:instrumentId`,
+						() => import("@frontend/modules/money/pages/Script.page"),
+					),
 					page(ROUTES.groups, () => import("@frontend/modules/groups/pages/Groups.page")),
 					page(
 						ROUTES.accounts,

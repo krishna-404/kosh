@@ -1,6 +1,8 @@
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Button } from "@connected-repo/ui-mui/form/Button";
 import { TextField } from "@connected-repo/ui-mui/form/TextField";
+import { formatDate } from "@connected-repo/ui-mui/format/date";
+import { formatMoney } from "@connected-repo/ui-mui/format/money";
 import { Banner } from "@connected-repo/ui-mui/kosh/Banner";
 import { CompareBar, DivergingBar, ProgressTrack } from "@connected-repo/ui-mui/kosh/Bars";
 import { BrokerMark } from "@connected-repo/ui-mui/kosh/BrokerMark";
@@ -21,6 +23,7 @@ import {
 } from "@connected-repo/ui-mui/kosh/icons";
 import { KoshWordmark } from "@connected-repo/ui-mui/kosh/KoshMark";
 import { LevelBadge } from "@connected-repo/ui-mui/kosh/LevelBadge";
+import { LineChart } from "@connected-repo/ui-mui/kosh/LineChart";
 import { Money, Percent } from "@connected-repo/ui-mui/kosh/Money";
 import { PageHeader } from "@connected-repo/ui-mui/kosh/PageHeader";
 import { ConfirmDialog, ResponsiveDialog } from "@connected-repo/ui-mui/kosh/ResponsiveDialog";
@@ -86,6 +89,30 @@ const PEOPLE = [
 	{ id: "p5", name: "Priya Nair" },
 	{ id: "p6", name: "Vikram Sethi" },
 ];
+
+/** Made-up monthly values for the gallery: steady deposits, three different paths. */
+const SAMPLE_CHART = (() => {
+	const dates: string[] = [];
+	const you: number[] = [];
+	const gold: (number | null)[] = [];
+	const nifty: number[] = [];
+	let a = 0;
+	let g = 0;
+	let n = 0;
+	for (let month = 0; month < 72; month++) {
+		const year = 2021 + Math.floor(month / 12);
+		dates.push(`${year}-${String((month % 12) + 1).padStart(2, "0")}-01`);
+		const wave = Math.sin(month / 5);
+		a = (a + 100_000) * (1.0115 + wave * 0.012);
+		n = (n + 100_000) * (1.0098 + wave * 0.015);
+		g = (g + 100_000) * (1.0105 - wave * 0.006);
+		you.push(Math.round(a));
+		nifty.push(Math.round(n));
+		// Gold's prices start a year later than the account does.
+		gold.push(month < 12 ? null : Math.round(g));
+	}
+	return { dates, you, gold, nifty };
+})();
 
 export default function KitPage() {
 	const { mode, setThemeMode } = useThemeMode();
@@ -353,6 +380,26 @@ export default function KitPage() {
 						<ProgressTrack value={0.6} ariaLabel="History complete" sx={{ width: 200 }} />
 					</Box>
 				</Box>
+			</SectionCard>
+
+			<SectionCard title="Value over time">
+				<LineChart
+					dates={SAMPLE_CHART.dates}
+					series={[
+						{ key: "you", name: "This account", tone: "you", emphasis: true, values: SAMPLE_CHART.you },
+						{ key: "gold", name: "Gold", tone: "gold", values: SAMPLE_CHART.gold },
+						{ key: "nifty", name: "NIFTY 50 index", tone: "nifty", values: SAMPLE_CHART.nifty },
+					]}
+					labels={{
+						summary: "Value over time: this account ends highest, then gold, then NIFTY 50.",
+						showTable: "Show the numbers",
+						hideTable: "Hide the numbers",
+						date: "Date",
+					}}
+					formatValue={(value) => formatMoney(value)}
+					formatTick={(value) => formatMoney(value, { notation: "compact" })}
+					formatDate={formatDate}
+				/>
 			</SectionCard>
 
 			<Section title="Overlays">

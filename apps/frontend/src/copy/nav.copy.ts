@@ -30,6 +30,10 @@ export const ROUTES = {
 
 /** One account's own page. */
 export const accountPath = (accountId: string): string => `${ROUTES.accounts}/${accountId}`;
+/** One account's page on a given tab ("returns", "holdings", "cash", "statements", "worked-out"). */
+export const accountTabPath = (accountId: string, tab: string): string => `${accountPath(accountId)}?tab=${tab}`;
+/** One script's page (a share, a fund), across the accounts that hold it. */
+export const scriptPath = (instrumentId: string): string => `${ROUTES.holdings}/${instrumentId}`;
 /** Where an invite link lands. */
 export const invitePath = (token: string): string => `/invite/${token}`;
 
