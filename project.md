@@ -12,7 +12,7 @@
 - Dividends tracked from public feeds with receipt confirmation; corporate actions (splits, bonuses, mergers, demergers, renames) applied automatically or via user prompts.
 - Foreign investments and crypto included, converted through an FX layer into INR. Long-term investments only — no F&O, no intraday.
 
-**Users:** the family (a Kosh *family = team*): family members and their fund manager are team members with access to the shared dashboards.
+**Users:** family members, their fund managers, and anyone else they choose. Each person has their own login and gets View, Edit or Owner on specific broker accounts (or on all of one holder's accounts). There are no teams or workspaces; a "family" is a group of accounts a person saves for themselves.
 
 **Architecture principles** (non-negotiable):
 1. **Fund-flow ground truth** — metrics anchor to deposits/withdrawals, never trade dates.
@@ -25,4 +25,4 @@
 
 ## Technical foundation
 
-Built on this repo's full-stack TypeScript monorepo: oRPC + Orchid ORM + PostgreSQL + pg-tbus backend; React 19 + Vite + MUI PWA frontend; Better Auth (family = team); Novu notifications. The boilerplate's offline-first Dexie sync is **not** used for portfolio data (analytics are server-computed); the PWA shell and file-upload infrastructure are retained. One Python tool — casparser, for CAS PDF parsing — runs as a pinned CLI subprocess; everything else is TypeScript.
+Built on this repo's full-stack TypeScript monorepo: oRPC + Orchid ORM + PostgreSQL + pg-tbus backend; React 19 + Vite + MUI frontend; Better Auth; Novu notifications. The app is **online-only** — analytics are server-computed, so there is no offline data layer; the PWA shell (install, update prompt, push) is retained. One Python tool — casparser, for CAS PDF parsing — runs as a pinned CLI subprocess; everything else is TypeScript.

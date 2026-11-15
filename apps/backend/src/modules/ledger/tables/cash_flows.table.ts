@@ -17,7 +17,6 @@ export class CashFlowTable extends BaseTable {
 	columns = this.setColumns(
 		(t) => ({
 			id: t.ulidWithDefault().primaryKey(),
-			familyId: t.koshFamilyId(),
 			accountId: t.ulid().foreignKey("broker_accounts", "id", {
 				onUpdate: "RESTRICT",
 				onDelete: "RESTRICT",
@@ -48,22 +47,26 @@ export class CashFlowTable extends BaseTable {
 			}),
 			inrAmount: t.moneyAmount(),
 			fxRateUsed: t.rate8().nullable(),
+			/** False once the upload or answer that produced the row is undone. */
+			isLive: t.boolean().default(true),
+			/** `ledger_line`, or `opening_balance` (what the account held before the first line). */
+			origin: t.string(24).default("ledger_line"),
 
 			...t.timestampsAsNumbers(),
 		}),
 		(t) => [
 			t.index(["accountId", "flowDate"]),
 			// XIRR pulls external flows for an account set over a date range.
-			t.index(["familyId", "classification", "flowDate"]),
+			t.index(["accountId", "classification", "flowDate"]),
 		],
 	);
 
-	// Default tenant scope (family = team). Bypass with `.unscope('default')`
-	// where a cross-tenant read is genuinely required.
+	// Default access scope: only rows of accounts the caller can see.
+	// Bypass with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.tenantTeamId }) : q;
+			return ctx ? q.where({ accountId: { in: [...ctx.accountIds] } }) : q;
 		},
 	});
 }

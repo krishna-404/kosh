@@ -72,6 +72,9 @@ const envSchema = z.object({
 		.min(32, "Internal API secret must be at least 32 characters")
 		.optional(),
 	IS_E2E_TEST: z.stringbool().optional(),
+	// Fetch prices from NSE and AMFI. On everywhere except tests, which have
+	// no business on the network; set it explicitly to override either way.
+	MARKET_DATA_SYNC: z.stringbool().optional(),
 	LOG_LEVEL: z
 		.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"])
 		.optional(),
@@ -109,13 +112,6 @@ const envSchema = z.object({
 	APPLE_KEY_ID: zString.optional(),
 	APPLE_PRIVATE_KEY: zString.optional(),
 	APPLE_APP_BUNDLE_ID: zString.optional(),
-	// Firebase Admin (server-side FCM) credentials — used by the silent-
-	// sync cron to send data-only push directly, bypassing Novu.
-	// Either GOOGLE_APPLICATION_CREDENTIALS (path to service-account JSON)
-	// or FIREBASE_SERVICE_ACCOUNT_JSON (inline JSON blob) works; leaving
-	// both unset disables server-side push. Prefer the inline var for
-	// containerised deploys where filesystem is ephemeral.
-	FIREBASE_SERVICE_ACCOUNT_JSON: optionalString,
 });
 
 // ----------------------------------------

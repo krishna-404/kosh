@@ -1,8 +1,9 @@
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { CustomErrorBoundary } from "@frontend/components/error_fallback";
-import { AppLayout } from "@frontend/components/layout/AppLayout";
+import { AppShell } from "@frontend/components/layout/AppShell";
 import { RootLayout } from "@frontend/components/layout/RootLayout";
+import { HOME, ROUTES } from "@frontend/copy/nav.copy";
 import { authLoader } from "@frontend/utils/auth.loader";
 import * as Sentry from "@sentry/react";
 import { createBrowserRouter, type RouteObject, redirect } from "react-router";
@@ -40,6 +41,32 @@ const lazyRoute = (importer: () => Promise<{ default: React.ComponentType }>) =>
 		return { Component: mod.default };
 	};
 
+// The component gallery is a development and test aid, not a product page.
+const kitRoute: ReactRouterWithNavbar[] =
+	import.meta.env.MODE === "production"
+		? []
+		: [{ path: "kit", lazy: lazyRoute(() => import("@frontend/modules/kit/pages/Kit.page")) }];
+
+const page = (path: string, importer: () => Promise<{ default: React.ComponentType }>) => ({
+	path: path.replace(/^\//, ""),
+	lazy: lazyRoute(importer),
+});
+
+// Signed-in development aids (inside the app shell), left out of production builds.
+const devPages =
+	import.meta.env.MODE === "production"
+		? []
+		: [
+				page(
+					"/kit/statements/:accountId",
+					() => import("@frontend/modules/kit/pages/StatementsPreview.page"),
+				),
+				page(
+					"/kit/panel/:panel/:accountId",
+					() => import("@frontend/modules/kit/pages/PanelPreview.page"),
+				),
+			];
+
 const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 	{
 		path: "/",
@@ -47,37 +74,53 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 		errorElement: <CustomErrorBoundary />,
 		hydrateFallbackElement: <HydrateFallback />,
 		children: [
-			{
-				index: true,
-				loader: () => redirect("/dashboard"),
-			},
+			{ index: true, loader: () => redirect(HOME) },
 			{
 				path: "auth/*",
 				lazy: lazyRoute(() => import("@frontend/modules/auth/auth.router")),
 			},
-			// Authenticated routes with AppLayout
+			...kitRoute,
+			// From the invite email, for someone who is not (and need not be) signed in.
 			{
-				element: <AppLayout />,
+				path: "invite/:token/wrong-person",
+				lazy: lazyRoute(() => import("@frontend/modules/invite/pages/WrongPerson.page")),
+			},
+			// Signed-in pages, inside the app shell.
+			{
+				element: <AppShell />,
 				loader: authLoader,
+				// A change of filter, scope, period or tab only rewrites the query
+				// string. Fetching the session again for each one made every such
+				// control wait a round trip before it answered.
+				shouldRevalidate: ({ currentUrl, nextUrl, defaultShouldRevalidate }) =>
+					currentUrl.pathname === nextUrl.pathname ? false : defaultShouldRevalidate,
 				children: [
-					{
-						path: "dashboard",
-						lazy: lazyRoute(() => import("@frontend/pages/Dashboard.page")),
-					},
-					{
-						path: "teams/*",
-						lazy: lazyRoute(() => import("@frontend/modules/teams/teams.router")),
-					},
-					{
-						path: "profile",
-						lazy: lazyRoute(() => import("@frontend/pages/Profile.page")),
-					},
-					{
-						path: "settings/sync",
-						lazy: lazyRoute(() => import("@frontend/pages/SettingsSync.page")),
-					},
+					page(ROUTES.overview, () => import("@frontend/modules/money/pages/Overview.page")),
+					page(ROUTES.holdings, () => import("@frontend/modules/money/pages/Holdings.page")),
+					page(
+						`${ROUTES.holdings}/:instrumentId`,
+						() => import("@frontend/modules/money/pages/Script.page"),
+					),
+					page(ROUTES.groups, () => import("@frontend/modules/groups/pages/Groups.page")),
+					page(
+						ROUTES.accounts,
+						() => import("@frontend/modules/access/pages/AccountsAndPeople.page"),
+					),
+					page(
+						`${ROUTES.accounts}/:accountId`,
+						() => import("@frontend/modules/account/pages/Account.page"),
+					),
+					page("/invite/:token", () => import("@frontend/modules/invite/pages/Invite.page")),
+					page(ROUTES.shared, () => import("@frontend/modules/access/pages/SharedWithMe.page")),
+					page(ROUTES.access, () => import("@frontend/modules/access/pages/WhoCanSeeWhat.page")),
+					page(ROUTES.activity, () => import("@frontend/modules/activity/pages/Activity.page")),
+					page(ROUTES.profile, () => import("@frontend/modules/profile/pages/Profile.page")),
+					...devPages,
 				],
 			},
+			// Anything else — including bookmarks to pages that no longer
+			// exist, such as the old /dashboard — goes home instead of a blank screen.
+			{ path: "*", loader: () => redirect(HOME) },
 		],
 	},
 ];

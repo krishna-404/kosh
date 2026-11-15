@@ -1,39 +1,35 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { TeamMemberRole } from "@connected-repo/zod-schemas/enums.zod";
+import type { AccessLevel } from "@connected-repo/zod-schemas/enums.zod";
 
 /**
- * Per-request tenant scope, propagated via AsyncLocalStorage. Set by
- * `rpcProtectedActiveTeamProcedure` for user requests, and by background
- * workers using the `"system"` sentinel for `teamMemberId`/`teamMemberRole`.
+ * Per-request access scope, propagated via AsyncLocalStorage. Set by
+ * `rpcPortfolioProcedure` from the caller's rows in `access_grants`.
  *
- * Read by base-table `setOnCreate` hooks (see `db/base_table.ts`'s
- * `idAndAuditTimestamps`) to auto-stamp `teamId` + `createdByTeamMemberId` on
- * every insert — making it impossible to write a row without tenant identity.
+ * The broker account is the unit of access. Every account-scoped table's
+ * default scope reads `accountIds` to filter every query, so a handler cannot
+ * read another account's rows by accident; writes additionally call
+ * `requireAccountLevel` / `requirePersonLevel` (access.portfolio.service.ts).
  *
- * Any future authz check on `teamMemberRole` MUST reject `"system"` explicitly
- * rather than fall through to an allow branch; treating the sentinel as
- * Owner/Admin would silently privilege the worker.
+ * The snapshot is taken once per request: a grant created inside a request is
+ * not visible to that same request's scopes.
  */
 export interface RequestContext {
-	tenantTeamId: string;
 	userId: string;
-	teamMemberId: string;
-	teamMemberRole: TeamMemberRole | "system";
+	/** Effective level per account the caller can see (max of account + holder grants). */
+	accountLevels: ReadonlyMap<string, AccessLevel>;
+	/** Level per holder the caller has a holder-wide grant on. */
+	personLevels: ReadonlyMap<string, AccessLevel>;
+	/** Keys of `accountLevels`. Never empty — see `NO_ROWS`. */
+	accountIds: readonly string[];
+	/** Holders the caller can see: granted directly, or holding a visible account. Never empty. */
+	personIds: readonly string[];
 }
+
+/**
+ * Stand-in id for "no rows". `IN ()` is not valid SQL, so an empty access list
+ * is represented by one id that can never exist (ids are 26-char ULIDs).
+ */
+export const NO_ROWS = "-";
 
 export const requestContext = new AsyncLocalStorage<RequestContext>();
 export const getRequestContext = () => requestContext.getStore();
-
-/**
- * True when the current request context belongs to a server-side system actor
- * (background worker, seed, migration) rather than an authenticated user.
- *
- * The `"system"` sentinel is set only in code paths users cannot reach. The
- * protected procedure resolves `teamMemberId` from a `team_members` DB lookup
- * which can never produce the literal `"system"` (it's a 26-char ULID).
- *
- * Use this helper instead of inline `ctx?.teamMemberId === "system"` so every
- * system-bypass site is grep-able from one place.
- */
-export const isSystemContext = (ctx: RequestContext | undefined): boolean =>
-	ctx?.teamMemberId === "system";

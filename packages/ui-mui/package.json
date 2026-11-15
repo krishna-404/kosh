@@ -1,11 +1,12 @@
 {
 	"author": "Balkrishna Agarwal",
-	"description": "Common Material-UI components for the monorepo",
+	"description": "Kosh design system: theme tokens, shared components and MUI re-exports",
 	"devDependencies": {
 		"@connected-repo/typescript-config": "*",
 		"@types/node": "^22.18.12",
 		"@types/react": "^19.2.14",
-		"@types/react-dom": "^19.2.2"
+		"@types/react-dom": "^19.2.2",
+		"vitest": "^4.0.18"
 	},
 	"exports": {
 		"./components/*": {
@@ -28,10 +29,20 @@
 			"import": "./dist/form/*.js",
 			"types": "./src/form/*.tsx"
 		},
+		"./format/*": {
+			"default": "./dist/format/*.js",
+			"import": "./dist/format/*.js",
+			"types": "./src/format/*.ts"
+		},
 		"./icons/*": {
 			"default": "./dist/icons/*.js",
 			"import": "./dist/icons/*.js",
 			"types": "./src/icons/*.ts"
+		},
+		"./kosh/*": {
+			"default": "./dist/kosh/*.js",
+			"import": "./dist/kosh/*.js",
+			"types": "./src/kosh/*.tsx"
 		},
 		"./layout/*": {
 			"default": "./dist/layout/*.js",
@@ -81,6 +92,8 @@
 		"dev": "concurrently --kill-others \"tsc -w\" \"tsc-alias -w\"",
 		"format": "biome format . --write",
 		"lint": "biome check .",
+		"test": "vitest run",
+		"test:run": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
 	"sideEffects": false,

@@ -8,7 +8,7 @@ Indian families hold investments scattered across many broker accounts — diffe
 
 ## The product
 
-A self-hosted web app (this monorepo) where a household:
+A self-hosted, online-only web app (this monorepo) where a household:
 
 1. **Connects accounts by file drop** (v1): uploads broker back-office exports — tradebook, ledger/funds statement, holdings, contract notes. Official broker APIs come in a later phase.
 2. **Backfills full history**: every account is imported back to inception from statements. No shortcuts.
@@ -25,7 +25,7 @@ A self-hosted web app (this monorepo) where a household:
 ## Users
 
 - **The operator**: the family member (or fund manager) who uploads statements and answers prompts.
-- **Family members**: view dashboards. *(Exact login/permission model: open — [Grilling: Family, accounts & access model](https://github.com/krishna-404/family-portfolio-tracker/issues/2).)*
+- **Family members, fund managers, friends**: each has their own login and is given View, Edit or Owner on specific broker accounts — or on all of one person's accounts. One fund manager can serve several households from a single login. There are no teams or workspaces; see [01-architecture.md](./01-architecture.md) §5.
 
 ## Non-negotiable principles (owner directives)
 

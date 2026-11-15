@@ -1,4 +1,3 @@
-import { db } from "@backend/db/db";
 import { buildInboxCredentials } from "@backend/modules/notifications/services/inbox_credentials.notifications.service";
 import {
 	registerFcmDevice,

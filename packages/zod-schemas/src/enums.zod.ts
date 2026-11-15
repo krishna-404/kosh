@@ -29,10 +29,6 @@ export const FILE_TYPE_ENUM = ["attachment"] as const;
 export const fileTypeZod = z.enum(FILE_TYPE_ENUM);
 export type FileType = z.infer<typeof fileTypeZod>;
 
-export const TEAM_MEMBER_ROLE_ENUM = ["Owner", "Admin", "Member"] as const;
-export const teamMemberRoleZod = z.enum(TEAM_MEMBER_ROLE_ENUM);
-export type TeamMemberRole = z.infer<typeof teamMemberRoleZod>;
-
 export const THEME_SETTING_ENUM = ["dark", "light", "system"] as const;
 export const themeSettingZod = z.enum(THEME_SETTING_ENUM);
 export type ThemeSetting = z.infer<typeof themeSettingZod>;
@@ -48,14 +44,6 @@ export type PgTbusTaskStatus = z.infer<typeof pgTbusTaskStatusZod>;
 export const FEATURE_FLAG_SCOPE_ENUM = ["global", "team"] as const;
 export const featureFlagScopeZod = z.enum(FEATURE_FLAG_SCOPE_ENUM);
 export type FeatureFlagScope = z.infer<typeof featureFlagScopeZod>;
-
-export const TABLES_TO_SYNC_ENUM = [
-	"teamsApp",
-	"teamMembers",
-	"files",
-] as const;
-export const tablesToSyncZod = z.enum(TABLES_TO_SYNC_ENUM);
-export type TablesToSync = z.infer<typeof tablesToSyncZod>;
 
 // Device platform reported by the frontend at push-register time.
 // Broad enough to cover every OS a Web Push subscription can originate
@@ -139,6 +127,55 @@ export const CASH_FLOW_CLASSIFICATION_ENUM = [
 ] as const;
 export const cashFlowClassificationZod = z.enum(CASH_FLOW_CLASSIFICATION_ENUM);
 export type CashFlowClassification = z.infer<typeof cashFlowClassificationZod>;
+
+// What a user may do with a broker account, lowest to highest. ORDER MATTERS:
+// a level includes everything below it (see access.portfolio.service.ts).
+//   view  — see holdings, flows, returns and how each number was computed
+//   edit  — also upload statements, undo an upload, answer prompts
+//   owner — also share, set fees, rename/close
+export const ACCESS_LEVEL_ENUM = ["view", "edit", "owner"] as const;
+export const accessLevelZod = z.enum(ACCESS_LEVEL_ENUM);
+export type AccessLevel = z.infer<typeof accessLevelZod>;
+
+// Who a holder is. Decides the avatar's shape and whether "invite them" is
+// offered: a person who signs in, a person without a login (a child, someone
+// you look after), or an HUF.
+export const HOLDER_KIND_ENUM = ["login", "no_login", "huf"] as const;
+export const holderKindZod = z.enum(HOLDER_KIND_ENUM);
+export type HolderKind = z.infer<typeof holderKindZod>;
+
+// An optional label on a saved group. Only a label — it shares nothing.
+export const GROUP_KIND_ENUM = [
+	"family",
+	"fund_manager",
+	"personal",
+	"friends",
+] as const;
+export const groupKindZod = z.enum(GROUP_KIND_ENUM);
+export type GroupKind = z.infer<typeof groupKindZod>;
+
+// Why a grant stopped being live. Grants are never deleted; this is what
+// lets Activity tell "removed" from "level changed" from "invite accepted".
+//   removed        — an owner took the access away
+//   left           — the person removed themselves
+//   level_changed  — replaced by a new row at another level
+//   claimed        — an email invite was accepted (replaced by a row for the login)
+//   cancelled      — an owner cancelled an invite nobody had accepted
+//   expired        — an invite ran out (14 days)
+//   renewed        — the invite was sent again (replaced by a fresh one)
+//   reported_wrong — the recipient said the invite reached the wrong person
+export const GRANT_END_REASON_ENUM = [
+	"removed",
+	"left",
+	"level_changed",
+	"claimed",
+	"cancelled",
+	"expired",
+	"renewed",
+	"reported_wrong",
+] as const;
+export const grantEndReasonZod = z.enum(GRANT_END_REASON_ENUM);
+export type GrantEndReason = z.infer<typeof grantEndReasonZod>;
 
 export const IMPORT_BATCH_KIND_ENUM = [
 	"tradebook",

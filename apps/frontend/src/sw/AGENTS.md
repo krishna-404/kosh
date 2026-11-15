@@ -1,22 +1,17 @@
 # Service Worker
 
-The service worker (`sw.ts`) handles PWA shell caching, push, and OPFS media serving.
+The service worker (`sw.ts`) handles the PWA shell and push. Kosh is online-only:
+the worker holds no application data.
 
 - `precacheAndRoute(self.__WB_MANIFEST)` — bundled build assets are precached at
-  install time so the app is launchable from the home screen / offline shell.
+  install time so the app shell loads fast and is launchable from the home screen.
 - `NavigationRoute` is registered so navigations resolve from the precached
-  `index.html` (SPA shell).
+  `index.html` (SPA shell). `/api/*`, `/super-admin/*` and `/mobile-app/*` are
+  denylisted and always go to the network.
 - `SKIP_WAITING` message handling supports the in-app update prompt
   (`PwaUpdatePrompt`).
-- **FCM push**: handles background push messages. A *silent* push (no
-  notification payload) is fanned out to open clients as a postMessage that
-  wakes the DataWorker's `SyncOrchestrator` to run a sync; a normal push shows
-  a notification.
-- **OPFS media**: intercepts `fetch` for virtual media URLs and streams the
-  bytes from OPFS, so `<img>`/`<video>` can render offline blobs without
-  `URL.createObjectURL` (ADR-009).
+- **FCM push**: handles background push messages and shows a notification;
+  `notificationclick` focuses or opens the target URL.
 
-The SW does NOT manage the Dexie/IndexedDB database or the pull-delta sync
-protocol itself — that lives in the DataWorker. There is **no SSE**; data sync
-is client-pull over oRPC-over-fetch. The SW's only sync role is relaying the
-silent-push wake signal.
+There is no local database, no sync protocol and no offline write queue. Every
+read and write is an oRPC call to the backend.

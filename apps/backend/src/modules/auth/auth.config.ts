@@ -5,7 +5,7 @@ import { logger } from "@backend/utils/logger.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
 import { zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
-import { createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, phoneNumber } from "better-auth/plugins";
 import { apple } from "better-auth/social-providers";
 import { generateAppleClientSecret } from "./lib/apple.lib";
@@ -80,6 +80,9 @@ async function getAppleClientSecret(): Promise<string | undefined> {
 // - Password management (change, set, reset)
 // - Email verification
 
+/** Password and phone sign-in: development and tests only, never where the public can reach. */
+const PASSWORD_SIGN_IN = env.NODE_ENV === "development" || env.NODE_ENV === "test";
+
 export const auth = betterAuth({
 	account: {
 		modelName: "accounts",
@@ -103,15 +106,40 @@ export const auth = betterAuth({
 	baseURL: env.VITE_API_URL,
 	basePath: "/api/auth",
 	database: orchidAdapter(db),
+	// People sign in to Kosh with Google. A password sign-up proves nothing
+	// about who owns the address — and a Google sign-in for the same address
+	// would later be linked onto it, handing whoever signed up first a login
+	// to someone else's shared accounts. So passwords exist only where no
+	// stranger can reach them: on a developer's machine and in tests.
 	emailAndPassword: {
-		enabled: true,
+		enabled: PASSWORD_SIGN_IN,
 	},
+	// Browser end-to-end tests sign in with a password, which never verifies an
+	// address — but sharing only works for verified addresses (as every real,
+	// Google, login has). Under the e2e flag alone, test sign-ups count as
+	// verified so the sharing flows can be exercised.
+	...(env.NODE_ENV === "test" && env.IS_E2E_TEST
+		? {
+				databaseHooks: {
+					user: {
+						create: {
+							before: async (user: Record<string, unknown>) => ({
+								data: { ...user, emailVerified: true },
+							}),
+						},
+					},
+				},
+			}
+		: {}),
 	plugins: [
 		bearer(),
+		// Phone sign-in has no SMS sender behind it, so where real people sign in
+		// it refuses outright. (The plugin stays registered for the fields it
+		// adds to a login; the code is never written to a log.)
 		phoneNumber({
-			sendOTP: async ({ phoneNumber, code }, _ctx) => {
-				logger.info({ phoneNumber, code }, "Sending phone number OTP");
-				// TODO: Implement actual SMS provider here
+			sendOTP: async ({ phoneNumber }, _ctx) => {
+				if (!PASSWORD_SIGN_IN) throw new APIError("BAD_REQUEST", { message: "Phone sign-in is not available." });
+				logger.info({ phoneNumber }, "Phone OTP requested (no SMS sender is configured)");
 			},
 			signUpOnVerification: {
 				getTempEmail: (phoneNumber) => `${phoneNumber}@temp-local.com`,
@@ -231,6 +259,17 @@ export const auth = betterAuth({
 		window: 10,
 		max: 100,
 		storage: "memory",
+		// Signing up and in is held to 3 tries per 10 seconds per address — right
+		// for the open internet, but the browser tests sign several people up at
+		// once from one machine. Loosened for those runs only, never in production.
+		...(env.NODE_ENV === "test" && env.IS_E2E_TEST
+			? {
+					customRules: {
+						"/sign-up/*": { window: 10, max: 100 },
+						"/sign-in/*": { window: 10, max: 100 },
+					},
+				}
+			: {}),
 		// TODO: Enable database rate limiting
 		// storage: "database",
 		// modelName: "betterauth_ratelimit"
@@ -310,12 +349,6 @@ export const auth = betterAuth({
 					input: themeSettingZod,
 					output: themeSettingZod,
 				},
-			},
-			activeTeamAppId: {
-				type: "string",
-				required: false,
-				defaultValue: null,
-				input: false,
 			},
 		},
 		modelName: "users",

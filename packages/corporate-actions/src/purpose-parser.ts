@@ -3,7 +3,7 @@
 // comes back confidence "low" with null ratios (kite_pnl regression: malformed ratios must
 // not silently produce garbage). The raw text is always retained.
 
-import type { CorporateAction } from "./types";
+import type { CorporateAction } from "./types.js";
 
 export type ParsedAction = Omit<
 	CorporateAction,
@@ -67,9 +67,13 @@ function extractBonus(text: string, rawText: string): PurposeExtraction | null {
 	};
 }
 
-// Handles full and abbreviated forms: "Face Value Split From", "Fv Splt Frm".
+// Handles full and abbreviated forms: "Face Value Split From", "Fv Splt Frm" — and the
+// exchange's current wording, which puts "(Sub-Division) -" after "Split" and "Per Share"
+// after each face value:
+//   "Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share"
+const PER_SHARE = String.raw`(?:\s*per\s+share)?`;
 const SPLIT_RE = new RegExp(
-	String.raw`\bf(?:ace)?\s*\.?\s*v(?:alue)?\.?\s*spl(?:i)?t\s+fr(?:o)?m\s+${RUPEE}\s*${AMOUNT}${SLASH_DASH}\s*to\s+${RUPEE}\s*${AMOUNT}${SLASH_DASH}`,
+	String.raw`\bf(?:ace)?\s*\.?\s*v(?:alue)?\.?\s*spl(?:i)?t(?:\s*\(\s*sub-?\s*division\s*\))?\s*-?\s*fr(?:o)?m\s+${RUPEE}\s*${AMOUNT}${SLASH_DASH}${PER_SHARE}\s*to\s+${RUPEE}\s*${AMOUNT}${SLASH_DASH}`,
 	"i",
 );
 const SPLIT_HINT_RE = /\bspl(?:i)?t\b|\bsub-?division\b/i;

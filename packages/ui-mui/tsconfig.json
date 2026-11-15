@@ -4,9 +4,18 @@
 		"outDir": "./dist",
 		"rootDir": "./src",
 		"paths": {
-			"@ui-mui/*": ["./src/*"]
+			"@ui-mui/*": [
+				"./src/*"
+			]
 		}
 	},
-	"include": ["src/**/*.ts", "src/**/*.tsx"],
-	"exclude": ["node_modules", "dist"]
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.tsx"
+	],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"src/**/*.test.ts"
+	]
 }

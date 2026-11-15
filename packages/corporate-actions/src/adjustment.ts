@@ -4,10 +4,10 @@
 // exDate`): a trade the day before the ex-date adjusts, a trade ON the ex-date does not
 // (kite_pnl's `==` comparison is the canonical regression).
 
-import { qtyRatio } from "./apply";
-import { formatDecimal8, mulDiv8, mulFixed8, parseDecimal8, SCALE } from "./decimal8";
-import { liveActions } from "./replay";
-import type { CorporateAction } from "./types";
+import { qtyRatio } from "./apply.js";
+import { formatDecimal8, mulDiv8, mulFixed8, parseDecimal8, SCALE } from "./decimal8.js";
+import { liveActions } from "./replay.js";
+import type { CorporateAction } from "./types.js";
 
 export type AdjustmentFactor = {
 	/** YYYY-MM-DD */

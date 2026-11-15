@@ -24,10 +24,8 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 - **Routing**: React Router 7
 - **State**: TanStack Query (server), Zustand (global), React Hook Form (forms)
 - **UI**: Material-UI (via `@connected-repo/ui-mui`)
-- **PWA**: Vite PWA plugin with offline support
-- **Offline Storage**: Dexie.js (IndexedDB wrapper)
-- **Sync**: Pull-based two-cursor delta sync + FCM silent-push wake (no SSE)
-- **Workers**: Two-worker architecture (DataWorker + MediaWorker)
+- **PWA**: Vite PWA plugin — installable shell, update prompt, push notifications
+- **Data**: online-only; every read and write is an oRPC call (no local database or sync)
 - **Testing**: Playwright (E2E)
 
 ### Tooling
@@ -54,8 +52,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 │   └── frontend/                   # React + Vite
 │       ├── src/
 │       │   ├── modules/            # Feature modules
-│       │   ├── worker/             # Web Workers (DataWorker, MediaWorker)
-│       │   ├── sw/                 # Service Worker (PWA shell, FCM push, OPFS media)
+│       │   ├── sw/                 # Service Worker (PWA shell, FCM push)
 │       │   ├── components/         # Shared components
 │       │   └── main.tsx            # Entry
 │       └── package.json
@@ -199,65 +196,17 @@ tbus.registerTask(notificationTaskDef, async ({ input }) => {
 ### PWA (Progressive Web App)
 
 Frontend includes PWA support:
-- Offline functionality with service worker
+- Installable app shell (service-worker precache)
 - Install prompts for iOS and Android
 - Update prompts for new versions
-- Offline blocker UI when connection is lost
+- Push notifications (FCM via Novu)
 
-### Offline-First Architecture
+### Online-only
 
-Full offline support with Dexie.js (IndexedDB):
-
-**Data Synchronization:**
-- **Delta Sync**: Pull-based two-cursor delta sync per table (no SSE, no long-lived socket). Triggered by a 2-minute interval, `visibilitychange`/`focus`/`online` events, post-write kicks, and FCM silent-push wake.
-- **Local Database**: IndexedDB with separate tables for synced data and pending changes
-- **Reactive UI**: Hooks automatically re-render when local DB changes
-- **Conflict Resolution**: Soft deletes (tombstones), server-wins for conflicts
-
-**Worker Architecture:**
-```
-UI Thread (React)
-  ├─► DataWorker (Dexie DB, SyncOrchestrator, FileUploadWorker/CDN)
-  └─► MediaWorker (stateless thumbnail generation)
-```
-
-**File Uploads:**
-- S3 presigned URLs for direct browser-to-S3 uploads
-- File blobs cached in IndexedDB for offline access
-- Automatic sync when connection restored
-
-### Two-Worker Architecture
-
-**DataWorker**: Handles all IndexedDB access and sync
-- Dexie.js database operations
-- SyncOrchestrator for background pull-delta sync + push queue
-- FileUploadWorker: the sole CDN upload path (presigned PUT from the DataWorker realm)
-- Only worker allowed to access IndexedDB
-
-**MediaWorker**: Stateless processing worker
-- Image thumbnail generation (browser-image-compression)
-- PDF thumbnail rendering (pdfjs-dist)
-- Returns derived thumbnail blobs to the caller — never persists, never uploads
-
-> Note: video thumbnails currently run on the main thread (`VideoDecoder`/`<video>` need a DOM runtime).
-
-**Communication**: Comlink proxy pattern; the MediaWorker proxy is bridged into the DataWorker for thumbnail generation.
-
-### Delta Sync (pull-based)
-
-There is **no SSE** and no server push channel. The client pulls changes on a schedule and on demand:
-
-**Backend**: each synced table exposes a `pullBundles` procedure backed by the generic
-two-cursor `syncDeltaService` (`toCursor` catches up on new rows, `fromCursor`
-backfills history). A wave-1 anchor (`teams.pullBundles`) mints a `topLevelSyncedAt`
-snapshot ceiling that every downstream wave echoes back for a consistent snapshot.
-Soft-deleted rows are shipped as tombstones so the client can evict them.
-
-**Frontend** (DataWorker `SyncOrchestrator`): runs a pull → wipe → push cycle. Triggers:
-- 2-minute interval (main-thread + worker-realm safety net)
-- `visibilitychange` / `focus` / `online` events
-- post-write kicks (a staged file starts its upload immediately)
-- FCM **silent push**, which wakes the app to run a sync without showing a notification
+Kosh has no offline data layer. Portfolio figures are computed on the server
+over the full ledger, so the browser keeps no local database, runs no web
+workers and has no sync protocol or offline write queue. When the connection
+drops, a banner says so and requests simply fail until it returns.
 
 ### Cron Jobs
 
@@ -307,15 +256,20 @@ Zero-downtime deployments require strict adherence to the following rules. Break
 * **No Breaking Payload Changes:** Do not remove fields from JSON responses or change data types (e.g., String to Int) without a version bump (e.g., `/v1/` to `/v2/`).
 * **Graceful Failure:** Agents/Frontends must ignore unknown keys in API responses rather than crashing.
 
-### Dual Team Model
+### Access: per broker account
 
-Separate teams for UI and API access:
+The broker account is the unit of access. `access_grants` gives a user one of
+three levels on an account — `view`, `edit` or `owner` — or on a holder, which
+covers all of that holder's accounts including ones added later. Family
+members, fund managers and friends are all just people with grants; a "family"
+is a saved group of accounts, not a permission.
 
-| Aspect | teams_app (UI) | teams_api (External) |
-|--------|---------------|---------------------|
-| **Auth** | Session/Cookie | API Key |
-| **Use Case** | Journal entries, prompts | Webhook integrations |
-| **Tables** | `teams_app`, `team_members` | `teams_api` |
+`rpcPortfolioProcedure` loads the caller's access on every request. Each
+account-scoped table filters on it by default, and anything that changes data
+states the level it needs. There are no teams, workspaces or tenant columns.
+
+`teams_api` is unrelated: it models external API-key consumers of the OpenAPI
+surface.
 
 ### End-to-End Type Safety
 
@@ -328,7 +282,7 @@ Shared Zod schemas in `packages/zod-schemas/`:
 
 - [Root Architecture & ADRs](./AGENTS.md)
 - [Backend Patterns](./apps/backend/AGENTS.md)
-- [Frontend PWA & Workers](./apps/frontend/AGENTS.md)
+- [Frontend](./apps/frontend/AGENTS.md)
 - [UI Component System](./packages/ui-mui/AGENTS.md)
 - [Schema Management](./packages/zod-schemas/AGENTS.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines

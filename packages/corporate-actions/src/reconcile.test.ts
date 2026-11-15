@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { reconcileHoldings } from "./reconcile";
-import { replayPositions } from "./replay";
-import type { CorporateAction, Trade } from "./types";
+import { reconcileHoldings } from "./reconcile.js";
+import { replayPositions } from "./replay.js";
+import type { CorporateAction, Trade } from "./types.js";
 
 describe("reconcileHoldings", () => {
 	it("matching holdings produce no discrepancies", () => {

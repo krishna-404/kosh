@@ -1,8 +1,8 @@
 // The detection net: expected holdings (from replay) vs broker-reported holdings. Feeds are
 // an optimization — reconciliation is the guarantee that catches any action they missed.
 
-import { formatDecimal8, parseDecimal8 } from "./decimal8";
-import type { Position } from "./types";
+import { formatDecimal8, parseDecimal8 } from "./decimal8.js";
+import type { Position } from "./types.js";
 
 export type ReportedHolding = {
 	isin: string;

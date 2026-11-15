@@ -1,9 +1,15 @@
+import { activityRouter } from "@backend/modules/activity/activity.router";
 import { cdnRouter } from "@backend/modules/cdn/cdn.user_app.router";
+import { dividendsRouter } from "@backend/modules/dividends/dividends.router";
+import { feesRouter } from "@backend/modules/fees/fees.router";
 import { filesRouter } from "@backend/modules/files/files.router";
 import { importsRouter } from "@backend/modules/imports/imports.router";
+import { ledgerRouter } from "@backend/modules/ledger/ledger.router";
+import { moneyRouter } from "@backend/modules/metrics/money.router";
 import { notificationsRouter } from "@backend/modules/notifications/notifications.router";
+import { accessRouter } from "@backend/modules/portfolio/access.router";
 import { portfolioRouter } from "@backend/modules/portfolio/portfolio.router";
-import { teamsAppRouter } from "@backend/modules/teams/teams_app.router";
+import { questionsRouter } from "@backend/modules/questions/questions.router";
 import { meRouter } from "@backend/modules/users/me.user_app.router";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
 import type {
@@ -37,14 +43,20 @@ const healthCheck = rpcPublicProcedure
 	});
 
 export const userAppRouter = {
+	access: accessRouter,
+	activity: activityRouter,
 	cdn: cdnRouter,
+	dividends: dividendsRouter,
+	fees: feesRouter,
 	files: filesRouter,
 	health: healthCheck,
 	imports: importsRouter,
+	ledger: ledgerRouter,
 	me: meRouter,
+	money: moneyRouter,
 	notifications: notificationsRouter,
 	portfolio: portfolioRouter,
-	teams: teamsAppRouter,
+	questions: questionsRouter,
 };
 
 export type UserAppRouter = RouterClient<typeof userAppRouter>;

@@ -9,7 +9,7 @@ import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
 import { trace } from "@opentelemetry/api";
 import { LoggingHandlerPlugin } from "@orpc/experimental-pino";
-import { RPCHandler } from "@orpc/server/node";
+import { BodyLimitPlugin, RPCHandler } from "@orpc/server/node";
 import {
 	CORSPlugin,
 	RequestHeadersPlugin,
@@ -20,6 +20,10 @@ import {
 
 export const reactAppHandler = new RPCHandler(userAppRouter, {
 	plugins: [
+		// The largest thing sent here is a statement, as text inside the request
+		// (the contract allows about 12 MB of file). Anything bigger is refused
+		// before it is read into memory or parsed.
+		new BodyLimitPlugin({ maxBodySize: 20 * 1024 * 1024 }),
 		new RequestHeadersPlugin(),
 		new ResponseHeadersPlugin(),
 		new CORSPlugin({
@@ -29,7 +33,6 @@ export const reactAppHandler = new RPCHandler(userAppRouter, {
 				"content-type",
 				"authorization",
 				"x-csrf-token",
-				"x-team-id",
 				...TRACE_HEADERS_ALLOW,
 			],
 			exposeHeaders: [...TRACE_HEADERS_EXPOSE],

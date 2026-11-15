@@ -21,35 +21,24 @@ export class FileTable extends BaseTable {
 				onDelete: "CASCADE",
 				onUpdate: "RESTRICT",
 			}),
-			// Auto-stamped from AsyncLocalStorage on insert. See journal_entries
-			// for the design note.
-			teamId: t
-				.ulid()
-				.foreignKey("teams_app", "id", {
-					onDelete: "CASCADE",
-					onUpdate: "RESTRICT",
-				})
-				.nullable()
-				.setOnCreate(() => getRequestContext()?.tenantTeamId ?? null),
 			deletedAt: t.timestampNumber().nullable(),
 
-			...t.timestamps(),
+			...t.timestampsAsNumbers(),
 		}),
 		(t) => [
-			// Cursor-pagination driver for files pullBundles.
-			t.index(["teamId", "updatedAt", "id"]),
+			t.index(["createdByUserId"]),
 			// Look-up index for the parent-scoped fetch pattern
 			// (files.getByTableId).
 			t.index(["tableName", "tableId"]),
 		],
 	);
 
-	// Default tenant scope. Bypass with `.unscope('default')` where a
-	// cross-tenant read is genuinely required.
+	// Default scope: a file is visible to the user who uploaded it. Bypass
+	// with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ teamId: ctx.tenantTeamId }) : q;
+			return ctx ? q.where({ createdByUserId: ctx.userId }) : q;
 		},
 	});
 

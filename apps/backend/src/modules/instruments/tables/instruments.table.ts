@@ -24,6 +24,15 @@ export class InstrumentTable extends BaseTable {
 		// 'NSE', 'NYSE', '24x7' (crypto).
 		exchangeCalendar: t.string().nullable(),
 		amfiCode: t.string().nullable(),
+		/** A fixed handle for the benchmarks: "nifty50", "gold". */
+		slug: t.string(40).nullable(),
+		/** Where its price comes from: `nse` (bhavcopy), `amfi` (fund NAV), or not known yet. */
+		priceSource: t.string(16).nullable(),
+		/** Prices are wanted from this day on; null while nothing holds it. */
+		trackedSince: t.date().nullable(),
+		/** The first and last day a price is held for. */
+		pricedFrom: t.date().nullable(),
+		pricedThrough: t.date().nullable(),
 
 		...t.timestampsAsNumbers(),
 	}));

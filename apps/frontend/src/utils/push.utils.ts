@@ -3,10 +3,6 @@ import { firebaseApp } from "@frontend/configs/firebase.config";
 import { getDeviceEnv } from "@frontend/utils/device.utils";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import {
-	OfflineWriteError,
-	onlineOnlyWrite,
-} from "@frontend/worker/db/online-first.adapter";
-import {
 	deleteToken,
 	getMessaging,
 	getToken,
@@ -61,19 +57,14 @@ async function fetchTokenAndRegister(): Promise<string | null> {
 	if (cachedToken === token && !stale) return token;
 
 	const device = getDeviceEnv();
-	// Device registration cannot queue offline meaningfully — an FCM token
-	// only becomes valid once the server has it, so a stale local flag
-	// would let syncPushIfGranted skip the round-trip forever.
-	await onlineOnlyWrite({
-		entityName: "notifications.registerDevice",
-		op: () =>
-			orpcFetch.notifications.registerDevice({
-				fcmToken: token,
-				userAgent: navigator.userAgent,
-				platform: device.platform,
-				pwaInstalled: device.isStandalone,
-				pwaStandaloneLaunch: device.isStandalone,
-			}),
+	// The local "registered" flag is only written after the server accepts
+	// the token — a failed call throws, so syncPushIfGranted retries next time.
+	await orpcFetch.notifications.registerDevice({
+		fcmToken: token,
+		userAgent: navigator.userAgent,
+		platform: device.platform,
+		pwaInstalled: device.isStandalone,
+		pwaStandaloneLaunch: device.isStandalone,
 	});
 	localStorage.setItem(REGISTERED_TOKEN_KEY, token);
 	localStorage.setItem(REGISTERED_AT_KEY, String(Date.now()));
@@ -140,20 +131,14 @@ export async function revokePushForUser(options?: {
 		localStorage.removeItem(REGISTERED_TOKEN_KEY);
 		localStorage.removeItem(REGISTERED_AT_KEY);
 
-		// If the revoke can't reach the server (offline logout, sleep),
-		// swallow the OfflineWriteError — the backend's nightly reconcile
-		// job (reconcile_fcm_tokens.cron) will soft-delete the stale row
-		// once the token stops receiving pushes.
+		// If the revoke can't reach the server, carry on with the local
+		// cleanup — the backend's nightly reconcile job
+		// (reconcile_fcm_tokens.cron) soft-deletes the stale row once the
+		// token stops receiving pushes.
 		try {
-			await onlineOnlyWrite({
-				entityName: "notifications.revokeDevice",
-				op: () => orpcFetch.notifications.revokeDevice({ fcmToken: cachedToken }),
-			});
+			await orpcFetch.notifications.revokeDevice({ fcmToken: cachedToken });
 		} catch (err) {
-			if (!(err instanceof OfflineWriteError)) throw err;
-			console.debug(
-				"[push] revokeDevice deferred — offline; backend reconcile will handle",
-			);
+			console.debug("[push] revokeDevice failed; backend reconcile will handle", err);
 		}
 
 		if (firebaseApp && (await isSupported())) {

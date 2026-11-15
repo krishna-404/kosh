@@ -2,8 +2,8 @@
 // input position is NEVER mutated (Portfolio Performance's history-rewriting split wizard is
 // the anti-pattern). All values are decimal strings; bigint fixed-point at 8dp internally.
 
-import { formatDecimal8, mulDiv8, mulFixed8, parseDecimal8, SCALE } from "./decimal8";
-import type { CorporateAction, Position } from "./types";
+import { formatDecimal8, mulDiv8, mulFixed8, parseDecimal8, SCALE } from "./decimal8.js";
+import type { CorporateAction, Position } from "./types.js";
 
 export type ApplyEffect = {
 	qtyBefore: string;

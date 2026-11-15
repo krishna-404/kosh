@@ -13,7 +13,6 @@ export class RawTradeTable extends BaseTable {
 	columns = this.setColumns(
 		(t) => ({
 			id: t.ulidWithDefault().primaryKey(),
-			familyId: t.koshFamilyId(),
 			// RESTRICT: raw rows must never orphan their provenance batch.
 			batchId: t.ulid().foreignKey("import_batches", "id", {
 				onUpdate: "RESTRICT",
@@ -58,12 +57,12 @@ export class RawTradeTable extends BaseTable {
 		],
 	);
 
-	// Default tenant scope (family = team). Bypass with `.unscope('default')`
-	// where a cross-tenant read is genuinely required.
+	// Default access scope: only rows of accounts the caller can see.
+	// Bypass with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.tenantTeamId }) : q;
+			return ctx ? q.where({ accountId: { in: [...ctx.accountIds] } }) : q;
 		},
 	});
 }

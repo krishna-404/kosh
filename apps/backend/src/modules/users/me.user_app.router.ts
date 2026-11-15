@@ -1,23 +1,17 @@
 import { db } from "@backend/db/db";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
-import { userWithTeamsZod } from "@connected-repo/zod-schemas/user.zod";
+import { userSelectAllZod } from "@connected-repo/zod-schemas/user.zod";
 
 const profile = rpcProtectedProcedure
 	.route({ method: "GET", tags: ["Me"] })
-	.output(userWithTeamsZod)
+	.output(userSelectAllZod)
 	.handler(
 		async ({
 			context: {
 				user: { id: userId },
 			},
 		}) => {
-			const profile = await db.users
-				.select("*", {
-					teams: (t) => t.teams.selectAll(),
-				})
-				.find(userId);
-
-			return profile;
+			return await db.users.find(userId);
 		},
 	);
 

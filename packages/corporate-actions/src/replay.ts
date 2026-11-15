@@ -3,9 +3,9 @@
 // deletes — replaying with a superseded action present is byte-identical to replaying
 // without it (the retract-and-reapply healing property).
 
-import { applyActionToPosition } from "./apply";
-import { formatDecimal8, mulDiv8, mulFixed8, parseDecimal8 } from "./decimal8";
-import type { CorporateAction, Position, Trade } from "./types";
+import { applyActionToPosition } from "./apply.js";
+import { formatDecimal8, mulDiv8, mulFixed8, parseDecimal8 } from "./decimal8.js";
+import type { CorporateAction, Position, Trade } from "./types.js";
 
 /** Actions that have not been retracted. Supersession filters; nothing is ever deleted. */
 export function liveActions(actions: CorporateAction[]): CorporateAction[] {

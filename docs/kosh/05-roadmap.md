@@ -4,11 +4,13 @@ Phased so that every milestone ends with something the family can actually use, 
 
 Open grillings gate only the milestones that name them; M0–M2 can start immediately.
 
+> **Build order:** the milestones below are delivered as the nine shippable phases in [06-build-plan.md](./06-build-plan.md), which is the working plan. Milestone numbers are kept here because issues refer to them.
+
 ---
 
 ## M0 — Foundation reset  *(ticket [#13](https://github.com/krishna-404/family-portfolio-tracker/issues/13); unblocked)*
 
-Strip OneQ (journal-entries, prompts modules, gamification, seeds, copy), rebrand to Kosh, rewrite `project.md` from [00-product-brief.md](./00-product-brief.md). Keep auth/teams/files/notifications/jobs/observability. Sync infra stays compiling but unwired for Kosh entities.
+Strip OneQ (journal-entries, prompts modules, gamification, seeds, copy), rebrand to Kosh, rewrite `project.md` from [00-product-brief.md](./00-product-brief.md). Keep auth/files/notifications/jobs/observability. *(Since then: the offline sync layer and the teams module were removed outright — Kosh is online-only and access is granted per broker account; see [01-architecture.md](./01-architecture.md) §2 and §5.)*
 
 **Accept:** `yarn lint`, `yarn check-types`, build green; app boots showing a Kosh shell; zero journaling references outside git history.
 
@@ -56,7 +58,7 @@ FX layer completion, foreign-platform + crypto-exchange import adapters, native-
 
 ## M8 — Hardening & polish
 
-Multi-user access per grilling [#2](https://github.com/krishna-404/family-portfolio-tracker/issues/2) (family members, fund-manager role), Novu notifications for prompts, PWA polish, encrypted-at-rest verification, performance passes, docs.
+Sharing screens for the per-account access model that is already enforced by the backend (invite by email, change a level, "who can see what"), Novu notifications for prompts, PWA polish, encrypted-at-rest verification, performance passes, docs.
 
 ---
 

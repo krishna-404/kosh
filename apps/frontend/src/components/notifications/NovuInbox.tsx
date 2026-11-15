@@ -1,7 +1,7 @@
-import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
+import { useLiteralPalette, useThemeMode } from "@connected-repo/ui-mui/theme/ThemeProvider";
+import { useTheme } from "@connected-repo/ui-mui/theme/useTheme";
 import { env } from "@frontend/configs/env.config";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { useTheme } from "@mui/material/styles";
 import { inboxDarkTheme } from "@novu/js/themes";
 import { Inbox } from "@novu/react";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,8 @@ export const NovuInbox = () => {
 	const navigate = useNavigate();
 	const theme = useTheme();
 	const { actualMode } = useThemeMode();
+	// Novu needs literal colour values, not CSS variables.
+	const palette = useLiteralPalette();
 
 	const { data: creds } = useQuery({
 		...orpc.notifications.inboxCredentials.queryOptions({}),
@@ -31,13 +33,13 @@ export const NovuInbox = () => {
 			appearance={{
 				baseTheme: actualMode === "dark" ? inboxDarkTheme : undefined,
 				variables: {
-					colorPrimary: theme.palette.primary.main,
-					colorPrimaryForeground: theme.palette.primary.contrastText,
-					colorSecondary: theme.palette.action.hover,
-					colorSecondaryForeground: theme.palette.text.primary,
-					colorBackground: theme.palette.background.paper,
-					colorForeground: theme.palette.text.primary,
-					colorNeutral: theme.palette.divider,
+					colorPrimary: palette.primary.main,
+					colorPrimaryForeground: palette.primary.contrastText,
+					colorSecondary: palette.action.hover,
+					colorSecondaryForeground: palette.text.primary,
+					colorBackground: palette.background.paper,
+					colorForeground: palette.text.primary,
+					colorNeutral: palette.divider,
 					fontSize: `${theme.typography.fontSize}px`,
 				},
 			}}

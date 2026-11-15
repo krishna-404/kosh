@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { liveActions, replayPositions } from "./replay";
-import type { CorporateAction, Trade } from "./types";
+import { liveActions, replayPositions } from "./replay.js";
+import type { CorporateAction, Trade } from "./types.js";
 
 const WIPRO = "INE075A01022";
 

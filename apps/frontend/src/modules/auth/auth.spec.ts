@@ -1,35 +1,29 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('Authentication', () => {
-  test('redirects unauthenticated users to login from dashboard', async ({ page }) => {
-    await page.goto('/dashboard');
+test.describe('Signing in', () => {
+  test('a signed-out visitor is sent to sign in', async ({ page }) => {
+    await page.goto('/overview');
     await page.waitForURL('**/auth/login');
-    await expect(page.locator('h3')).toContainText('Welcome');
+    await expect(page.getByRole('heading', { name: 'Sign in to Kosh' })).toBeVisible();
   });
 
-  test('login page loads with Google sign-in button', async ({ page }) => {
+  test('the sign-in page offers Google', async ({ page }) => {
     await page.goto('/auth/login');
-    await expect(page.locator('h3')).toContainText('Welcome');
-    await expect(page.locator('text=Continue with Google')).toBeVisible();
-    await expect(page.locator('text=Continue with Google')).toBeEnabled();
+    const google = page.getByRole('button', { name: 'Continue with Google' });
+    await expect(google).toBeVisible();
+    await expect(google).toBeEnabled();
   });
 
-  test('login page shows error message for OAuth failure', async ({ page }) => {
+  test('a failed Google sign-in says so in plain words', async ({ page }) => {
     await page.goto('/auth/login?error=oauth_failed');
-    await expect(page.locator('text=Authentication failed. Please try again.')).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText("Google couldn't sign you in. Try again.");
   });
 
-  test('successful login redirects to dashboard', async ({ page }) => {
-    // Start at login page
+  test('signing in lands on the overview', async ({ page }) => {
     await page.goto('/auth/login');
-
-    // Click the login button (shows "Continue with Google" but uses password login in test mode)
-    await page.locator('text=Continue with Google').click();
-
-    // Wait for redirect
-    await page.waitForURL(/\/dashboard/);
-
-    // Verify user is authenticated by checking for user menu
-    await expect(page.locator('[aria-label*="User menu"]')).toBeVisible();
+    // Shows "Continue with Google" but uses a password login in test mode.
+    await page.getByRole('button', { name: 'Continue with Google' }).click();
+    await page.waitForURL(/\/overview/);
+    await expect(page.getByRole('button', { name: /your menu/i })).toBeVisible();
   });
 });

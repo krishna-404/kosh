@@ -13,7 +13,6 @@ export class RawLedgerLineTable extends BaseTable {
 	columns = this.setColumns(
 		(t) => ({
 			id: t.ulidWithDefault().primaryKey(),
-			familyId: t.koshFamilyId(),
 			batchId: t.ulid().foreignKey("import_batches", "id", {
 				onUpdate: "RESTRICT",
 				onDelete: "RESTRICT",
@@ -34,6 +33,8 @@ export class RawLedgerLineTable extends BaseTable {
 			// False once this row's batch is retracted (rows are never deleted);
 			// keeps retracted lines out of dedupe. See migration 0010.
 			isLive: t.boolean().default(true),
+			/** The line's place in its file: keeps same-day lines in order. */
+			lineNo: t.integer().default(0),
 
 			...t.timestampsAsNumbers(),
 		}),
@@ -44,12 +45,12 @@ export class RawLedgerLineTable extends BaseTable {
 		],
 	);
 
-	// Default tenant scope (family = team). Bypass with `.unscope('default')`
-	// where a cross-tenant read is genuinely required.
+	// Default access scope: only rows of accounts the caller can see.
+	// Bypass with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.tenantTeamId }) : q;
+			return ctx ? q.where({ accountId: { in: [...ctx.accountIds] } }) : q;
 		},
 	});
 }

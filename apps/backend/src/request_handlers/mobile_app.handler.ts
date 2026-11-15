@@ -30,7 +30,6 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 				"content-type",
 				"authorization",
 				"x-csrf-token",
-				"x-team-id",
 				...TRACE_HEADERS_ALLOW,
 			],
 			exposeHeaders: [...TRACE_HEADERS_EXPOSE],

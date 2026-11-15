@@ -15,7 +15,6 @@ export class TradeTable extends BaseTable {
 	columns = this.setColumns(
 		(t) => ({
 			id: t.ulidWithDefault().primaryKey(),
-			familyId: t.koshFamilyId(),
 			rawTradeId: t
 				.ulid()
 				.foreignKey("raw_trades", "id", {
@@ -42,18 +41,20 @@ export class TradeTable extends BaseTable {
 				onUpdate: "RESTRICT",
 				onDelete: "RESTRICT",
 			}),
+			/** False once the upload that produced the row is undone. */
+			isLive: t.boolean().default(true),
 
 			...t.timestampsAsNumbers(),
 		}),
 		(t) => [t.index(["accountId", "tradeDate"]), t.index(["instrumentId"])],
 	);
 
-	// Default tenant scope (family = team). Bypass with `.unscope('default')`
-	// where a cross-tenant read is genuinely required.
+	// Default access scope: only rows of accounts the caller can see.
+	// Bypass with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.tenantTeamId }) : q;
+			return ctx ? q.where({ accountId: { in: [...ctx.accountIds] } }) : q;
 		},
 	});
 }

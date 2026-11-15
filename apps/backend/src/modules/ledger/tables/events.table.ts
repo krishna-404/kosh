@@ -16,7 +16,15 @@ export class EventTable extends BaseTable {
 	columns = this.setColumns(
 		(t) => ({
 			id: t.ulidWithDefault().primaryKey(),
-			familyId: t.koshFamilyId(),
+			// The account this fact is about. Every event the import pipeline
+			// writes has one; it is what access is checked against.
+			accountId: t
+				.ulid()
+				.foreignKey("broker_accounts", "id", {
+					onUpdate: "RESTRICT",
+					onDelete: "RESTRICT",
+				})
+				.nullable(),
 			kind: t.eventKindEnum(),
 			payload: t.json<Record<string, unknown>>(),
 			// 'system' | 'user' — a small backend-local pg enum
@@ -54,15 +62,18 @@ export class EventTable extends BaseTable {
 
 			...t.timestampsAsNumbers(),
 		}),
-		(t) => [t.index(["familyId", "kind"]), t.index(["familyId", "occurredAt"])],
+		(t) => [
+			t.index(["accountId", "kind"]),
+			t.index(["accountId", "occurredAt"]),
+		],
 	);
 
-	// Default tenant scope (family = team). Bypass with `.unscope('default')`
-	// where a cross-tenant read is genuinely required.
+	// Default access scope: only rows of accounts the caller can see.
+	// Bypass with `.unscope('default')` only for code that has done its own check.
 	scopes = this.setScopes({
 		default: (q) => {
 			const ctx = getRequestContext();
-			return ctx ? q.where({ familyId: ctx.tenantTeamId }) : q;
+			return ctx ? q.where({ accountId: { in: [...ctx.accountIds] } }) : q;
 		},
 	});
 }

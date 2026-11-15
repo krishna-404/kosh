@@ -20,6 +20,7 @@
 		"format": "biome format . --write",
 		"lint": "biome check .",
 		"test": "vitest run",
+		"test:run": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

@@ -1,16 +1,13 @@
-import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
-import { Box } from "@connected-repo/ui-mui/layout/Box";
-import CloudOffIcon from "@mui/icons-material/CloudOff";
+import { Banner } from "@connected-repo/ui-mui/kosh/Banner";
+import { IconOffline } from "@connected-repo/ui-mui/kosh/icons";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
 
 /**
- * Persistent banner above the app header when the browser reports the
- * device as offline. Cheap wrapper around `navigator.onLine` +
- * `online`/`offline` events. Tap navigates to the sync status page.
+ * Shown while the browser reports the device as offline. Kosh is
+ * online-only — every figure is worked out on the server — so this simply
+ * says why nothing is loading.
  */
 export const OfflineBanner = () => {
-	const navigate = useNavigate();
 	const [online, setOnline] = useState<boolean>(
 		typeof navigator !== "undefined" ? navigator.onLine : true,
 	);
@@ -29,28 +26,12 @@ export const OfflineBanner = () => {
 	if (online) return null;
 
 	return (
-		<Box
-			onClick={() => navigate("/settings/sync")}
-			sx={{
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-				gap: 1,
-				py: 0.75,
-				px: 2,
-				bgcolor: "warning.main",
-				color: "warning.contrastText",
-				cursor: "pointer",
-				position: "sticky",
-				top: 0,
-				zIndex: (t) => t.zIndex.appBar + 1,
-			}}
+		<Banner
+			tone="warn"
+			icon={<IconOffline fontSize="inherit" />}
+			sx={{ borderRadius: 0, justifyContent: "center" }}
 		>
-			<CloudOffIcon fontSize="small" />
-			<Typography variant="body2" sx={{ fontWeight: 600 }}>
-				You're offline — changes will sync when you're back online. Tap for
-				details.
-			</Typography>
-		</Box>
+			You're offline. Kosh needs a connection — it will carry on when you're back.
+		</Banner>
 	);
 };

@@ -13,7 +13,8 @@ concurrency:
 jobs:
   ci:
     name: Build, type-check & test
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: see the e2e job.
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -59,6 +60,11 @@ jobs:
         run: yarn lint
         continue-on-error: true
 
+      # Blocking: colours and fonts live only in the design tokens, and the app
+      # reaches MUI only through the shared UI package.
+      - name: Design-system guard
+        run: yarn lint:design
+
       # Backend tests run against NODE_ENV=test using the committed
       # apps/backend/.env.test (placeholder values, DB pointed at localhost).
       # The postgres service above matches its postgres/postgres credentials;
@@ -71,7 +77,11 @@ jobs:
 
   e2e:
     name: E2E (Playwright)
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: that label moved to Ubuntu 26.04, which the
+    # pinned Playwright (1.58) has no browser build for — `playwright install`
+    # fails with "does not support chromium on ubuntu26.04-x64". Move this
+    # forward together with a Playwright upgrade.
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
