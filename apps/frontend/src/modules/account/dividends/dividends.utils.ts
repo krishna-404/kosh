@@ -115,7 +115,9 @@ export const groupByFinancialYear = <T extends Dated>(dividends: readonly T[]): 
 	const byYear = new Map<number, T[]>();
 	for (const dividend of dividends) {
 		const year = financialYearOf(dividend.receivedOn);
-		byYear.set(year, [...(byYear.get(year) ?? []), dividend]);
+		const inYear = byYear.get(year);
+		if (inYear) inYear.push(dividend);
+		else byYear.set(year, [dividend]);
 	}
 	return [...byYear.entries()]
 		.sort(([a], [b]) => b - a)

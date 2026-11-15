@@ -1,5 +1,6 @@
 import { db } from "@backend/db/db";
 import { logger } from "@backend/utils/logger.utils";
+import { ulid } from "ulid";
 
 export interface RateLimitCheckResult {
 	allowed: boolean;
@@ -12,10 +13,8 @@ export interface RateLimitCheckResult {
 }
 
 /**
- * Debounced high-contention warning. When the optimistic-lock retry loop
- * exhausts for a given bucket, we log at most once per key per 60s to avoid
- * flooding the log stream during hot-loop contention (which by design causes
- * many rapid retries per second).
+ * Debounced "this bucket is empty" note: logged at most once per key per 60s,
+ * so a caller hammering an empty bucket does not flood the log.
  *
  * Map is process-local — good enough for observability signal ("this key is
  * hot"); not a strict distributed guarantee. Bounded by unique-keys-per-60s,
@@ -45,18 +44,27 @@ const logExhaustionOncePerMinute = (
 
 	logger.info(
 		{ key, limit, windowSeconds, retries },
-		"[rateLimit] high contention — optimistic-lock retries exhausted (debounced 60s per key)",
+		"[rateLimit] bucket empty (debounced 60s per key)",
 	);
 };
 
 /**
- * Token Bucket rate limiter — Postgres-backed with optimistic locking.
+ * Token Bucket rate limiter — Postgres-backed, one atomic statement per hit.
  *
  * Semantics: each `key` holds a bucket of `tokens`. The bucket regenerates
  * continuously at a rate of `limit / windowSeconds` up to a maximum of
  * `limit`. Every request costs 1 token.
  *
  * Storage: EXACTLY ONE row per key. Zero ongoing cleanup required.
+ *
+ * The refill-and-take is a single `INSERT … ON CONFLICT DO UPDATE … WHERE`,
+ * so concurrent requests for one key queue on the row's lock and each sees
+ * the bucket as the one before left it. (The earlier version read the row,
+ * then updated it only if nobody else had, retrying five times — and when a
+ * page fired a dozen requests at once for the same person, the losers ran
+ * out of retries and were turned away with 429 although the bucket was
+ * nearly full. A screen that loads many figures in parallel hit that
+ * routinely.)
  */
 export const checkAndRecordRateLimit = async (
 	key: string,
@@ -64,76 +72,44 @@ export const checkAndRecordRateLimit = async (
 	windowSeconds: number,
 ): Promise<RateLimitCheckResult> => {
 	const rate = limit / windowSeconds; // tokens per second
-	const MAX_RETRIES = 5;
 
-	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-		const current = await db.rateLimits.findByOptional({ key });
-		const now = Date.now();
+	// Take a token if there is one. A row comes back only when the take happened.
+	const taken = await db.$query<{ tokens: number }>`
+		INSERT INTO "rate_limits" ("id", "key", "tokens", "last_updated_at")
+		VALUES (${ulid()}, ${key}, ${limit - 1}::float8, clock_timestamp())
+		ON CONFLICT ("key") DO UPDATE SET
+			"tokens" = LEAST(
+				${limit}::float8,
+				"rate_limits"."tokens"
+					+ GREATEST(0, EXTRACT(EPOCH FROM (clock_timestamp() - "rate_limits"."last_updated_at"))) * ${rate}::float8
+			) - 1,
+			"last_updated_at" = clock_timestamp()
+		WHERE LEAST(
+			${limit}::float8,
+			"rate_limits"."tokens"
+				+ GREATEST(0, EXTRACT(EPOCH FROM (clock_timestamp() - "rate_limits"."last_updated_at"))) * ${rate}::float8
+		) >= 1
+		RETURNING "tokens"`;
 
-		if (!current) {
-			try {
-				await db.rateLimits.create({
-					key,
-					tokens: limit - 1,
-					lastUpdatedAt: new Date(now),
-				});
-				return {
-					allowed: true,
-					currentCount: 1,
-					limit,
-					retryAfterSeconds: 0,
-				};
-			} catch (err: any) {
-				// 23505 = unique_violation in Postgres
-				if (err.code === "23505") continue;
-				throw err;
-			}
-		}
-
-		// Bucket exists. Calculate how many tokens regenerated since last update.
-		const elapsedSeconds = (now - current.lastUpdatedAt) / 1000;
-		// Do not exceed the max capacity of the bucket (`limit`)
-		const currentTokens = Number(current.tokens);
-		const tokens = Math.min(limit, currentTokens + elapsedSeconds * rate);
-
-		if (tokens < 1) {
-			// Rate limited. How long until we reach exactly 1 token?
-			const retryAfterSeconds = Math.max(1, Math.ceil((1 - tokens) / rate));
-			return {
-				allowed: false,
-				currentCount: limit, // Bucket is effectively empty
-				limit,
-				retryAfterSeconds,
-			};
-		}
-
-		// Optimistic lock: only update if `lastUpdatedAt` hasn't changed
-		// (i.e. no other concurrent request has updated this row since our select).
-		const updatedCount = await db.rateLimits
-			.where({
-				key,
-				lastUpdatedAt: new Date(current.lastUpdatedAt),
-			})
-			.update({
-				tokens: tokens - 1,
-				lastUpdatedAt: new Date(now),
-			});
-
-		if (updatedCount === 0) {
-			// Another request updated this bucket right between our SELECT and UPDATE.
-			// Retry the cycle.
-			continue;
-		}
-
+	const left = taken.rows[0]?.tokens;
+	if (left !== undefined)
 		return {
 			allowed: true,
-			currentCount: Math.ceil(limit - (tokens - 1)),
+			currentCount: Math.ceil(limit - Number(left)),
 			limit,
 			retryAfterSeconds: 0,
 		};
-	}
 
-	logger.warn({ key, limit, windowSeconds, retries: MAX_RETRIES }, "[rateLimit] optimistic lock exhausted — shedding as rate-limited");
-	logExhaustionOncePerMinute(key, limit, windowSeconds, MAX_RETRIES);
-	return { allowed: false, currentCount: limit, limit, retryAfterSeconds: 1 };
+	// Empty. How long until one whole token is back?
+	const current = await db.rateLimits.findByOptional({ key });
+	const tokens = current
+		? Math.min(limit, Number(current.tokens) + Math.max(0, (Date.now() - current.lastUpdatedAt) / 1000) * rate)
+		: 0;
+	logExhaustionOncePerMinute(key, limit, windowSeconds, 0);
+	return {
+		allowed: false,
+		currentCount: limit,
+		limit,
+		retryAfterSeconds: Math.max(1, Math.ceil((1 - tokens) / rate)),
+	};
 };

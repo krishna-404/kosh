@@ -2,8 +2,8 @@ import { BaseTable } from "@backend/db/base_table";
 
 /**
  * Token Bucket rate-limit store — exactly one row per bucket key.
- * `checkAndRecordRateLimit` (see rate_limit.service.ts) uses optimistic locking
- * to refill tokens based on time elapsed and consume 1 token per request.
+ * `checkAndRecordRateLimit` (see rate_limit.service.ts) refills tokens for the
+ * time elapsed and takes one per request, in a single atomic statement.
  *
  * Storage growth depends on the key space:
  * - Bounded key spaces (user id, team id, teamApi id): 1 row per active

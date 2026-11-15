@@ -8,8 +8,8 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { IconButton } from "@connected-repo/ui-mui/navigation/IconButton";
 import type { Dividend } from "@connected-repo/zod-schemas/kosh/income.zod";
 import { DIVIDENDS as D } from "@frontend/copy/dividends.copy";
-import { Fragment } from "react";
 import { dividendFacts, paiseShown, rupees, scriptName, stateWords } from "../dividends.utils";
+import { Facts } from "./Facts";
 import { rowAreas, rowGrid } from "./rowGrid";
 
 const STATE_TAG = {
@@ -36,7 +36,7 @@ interface DividendRowProps {
 }
 
 /** Whether a row has more to offer than its one plain answer (Confirm, or Undo). */
-export const hasMore = (dividend: Dividend): boolean => dividend.state !== "not_received";
+const hasMore = (dividend: Dividend): boolean => dividend.state !== "not_received";
 
 /**
  * One dividend: the script, the ex-date and the working, its state in a tag
@@ -78,16 +78,7 @@ export const DividendRow = ({ dividend, handlers, compact, busy }: DividendRowPr
 				{dividend.source === "person" && <Tag icon={<IconEdit />}>{D.byHand}</Tag>}
 			</Typography>
 
-			<Typography variant="caption" component="div" sx={{ gridArea: "facts", minWidth: 0 }}>
-				{facts.map((fact, index) => (
-					<Fragment key={fact}>
-						{index > 0 && " · "}
-						<Box component="span" sx={{ whiteSpace: "nowrap" }}>
-							{fact}
-						</Box>
-					</Fragment>
-				))}
-			</Typography>
+			<Facts parts={facts} gridArea="facts" />
 
 			<Box sx={{ gridArea: "state", display: "flex", alignItems: "center", gap: 1, mt: { xs: 0.75, md: 0 } }}>
 				<Tag tone={tag.tone} icon={tag.icon}>

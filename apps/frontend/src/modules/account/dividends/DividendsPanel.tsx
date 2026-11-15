@@ -73,7 +73,8 @@ const AccountDividends = ({ accountId }: DividendsPanelProps) => {
 	const list = useQuery(orpc.dividends.list.queryOptions({ input: { accountId } }));
 	const actions = useDividendActions(accountId);
 	const theme = useTheme();
-	const compact = useMediaQuery(theme.breakpoints.down("md"));
+	// Read straight away (there is no server render), so a phone never draws the desktop row first.
+	const compact = useMediaQuery(theme.breakpoints.down("md"), { noSsr: true });
 
 	const years = useMemo(() => groupByFinancialYear(list.data?.dividends ?? []), [list.data]);
 	// Years opened or closed by hand; until then only the latest is open.

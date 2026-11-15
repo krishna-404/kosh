@@ -12,6 +12,7 @@ import { DIVIDENDS as D } from "@frontend/copy/dividends.copy";
 import { useId } from "react";
 import { type DividendYear, paiseShown, rupees } from "../dividends.utils";
 import { DividendRow, type RowHandlers } from "./DividendRow";
+import { Facts } from "./Facts";
 import { headingAreas, rowGrid } from "./rowGrid";
 
 interface YearSectionProps {
@@ -90,9 +91,7 @@ const YearSection = ({ year, open, onToggle, handlers, compact, busy }: YearSect
 						{D.list.year(year.label)}
 					</Box>
 					{/* Under the label, clear of the arrow. */}
-					<Typography variant="caption" component="span" sx={{ gridArea: "facts", pl: "26px", minWidth: 0 }}>
-						{counts.join(" · ")}
-					</Typography>
+					<Facts parts={counts} gridArea="facts" inset={26} />
 					{!compact && (
 						<Box component="span" sx={{ gridArea: "state", display: "flex" }}>
 							{year.toConfirm > 0 && (

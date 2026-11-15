@@ -72,7 +72,8 @@ test('a statement is checked, added, shown, questioned and undone', async ({ bro
   await picker.setInputFiles(csv('cash.csv', CASH));
   await page.getByRole('dialog').getByRole('button', { name: 'Add 3 lines' }).click();
   await expect(page.getByText('What was this ledger line?')).toBeVisible();
-  await expect(page.getByText(/Something the statement did not explain/)).toBeVisible();
+  // The statement's own words are on the question (and, for a moment, still in the closing preview).
+  await expect(page.getByText(/₹95 debit · “Something the statement did not explain/)).toBeVisible();
 
   // Answered, it stops being a question.
   await page.getByRole('button', { name: 'Charges or fees' }).click();
