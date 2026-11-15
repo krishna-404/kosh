@@ -1,6 +1,6 @@
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { logger } from "@backend/utils/logger.utils";
-import { ORPCError } from "@orpc/server";
+import { ORPCError, ValidationError } from "@orpc/server";
 import { ZodError } from "zod";
 
 /**
@@ -111,10 +111,13 @@ interface OrpcValidationCarrier {
 function extractOrpcValidationError(
 	error: unknown,
 ): OrpcValidationCarrier | null {
+	// By class first: this oRPC's ValidationError does not set `name`, so a
+	// check by name alone let malformed input through as a 500.
 	const isCarrier = (e: unknown): e is OrpcValidationCarrier =>
 		!!e &&
 		typeof e === "object" &&
-		(e as { name?: string }).name === "ValidationError" &&
+		(e instanceof ValidationError ||
+			(e as { name?: string }).name === "ValidationError") &&
 		Array.isArray((e as { issues?: unknown }).issues);
 	if (isCarrier(error)) return error;
 	const cause = (error as { cause?: unknown }).cause;
@@ -290,11 +293,19 @@ export function orpcErrorParser(
 			TOO_MANY_REQUESTS: 429,
 		};
 		const status = statusByCode[error.code] ?? 500;
+		// What the handler said about *why* (`{ code: "LAST_OWNER" }`) goes to
+		// the client with the refusal, so a screen can branch on the reason
+		// instead of matching the sentence.
+		const data =
+			error.data && typeof error.data === "object" && !Array.isArray(error.data)
+				? (error.data as Record<string, unknown>)
+				: undefined;
 		return {
 			code: error.code,
 			httpStatus: status,
 			message: error.message,
 			userFriendlyMessage: error.message,
+			...(data ? { details: data } : {}),
 			fingerprint: ["orpc", error.code.toLowerCase(), handler],
 		};
 	}
@@ -316,7 +327,12 @@ export function orpcErrorParser(
  */
 export function handleBoundaryError(error: unknown, handler: string) {
 	const err = error instanceof Error ? error : new Error(String(error));
-	const causeRaw = err instanceof ORPCError ? (err.cause ?? err) : err;
+	// An ORPCError a handler threw on purpose speaks for itself; only the
+	// framework's own wrappers (validation) are read through to their cause.
+	const deliberate =
+		err instanceof ORPCError && err.data !== undefined && err.data !== null;
+	const causeRaw =
+		err instanceof ORPCError && !deliberate ? (err.cause ?? err) : err;
 	const cause =
 		causeRaw instanceof Error ? causeRaw : new Error(String(causeRaw));
 

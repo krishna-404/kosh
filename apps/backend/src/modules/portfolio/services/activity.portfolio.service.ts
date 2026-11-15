@@ -43,7 +43,7 @@ const formatInr = (amount: string): string => {
 interface ListInput {
 	accountId?: string;
 	filter: "all" | "uploads" | "access" | "answers";
-	before?: number;
+	before?: string;
 	limit: number;
 }
 
@@ -58,6 +58,7 @@ const GRANT_COLUMNS = [
 	"revokedAt",
 	"revokedByUserId",
 	"endReason",
+	"expiresAt",
 	"supersedesGrantId",
 	"confirmedAt",
 	"createdAt",
@@ -70,6 +71,7 @@ export async function listActivity(
 	const ctx = requireAccess();
 	if (input.accountId) requireAccountLevel(input.accountId, "view");
 
+	const now = Date.now();
 	const wantsAccess = input.filter === "all" || input.filter === "access";
 	const items: ActivityItem[] = [];
 
@@ -160,11 +162,11 @@ export async function listActivity(
 	const person = (userId: string | null) => {
 		if (!userId) return null;
 		const u = users.get(userId);
-		return { name: u?.name ?? u?.email ?? "Someone", isMe: userId === meId };
+		return { key: userId, name: u?.name ?? u?.email ?? "Someone", isMe: userId === meId };
 	};
 	const subjectOf = (g: { userId: string | null; invitedEmail: string | null }) =>
 		g.userId
-			? { ...(person(g.userId) ?? { name: "Someone", isMe: false }), pending: false }
+			? { name: person(g.userId)?.name ?? "Someone", isMe: g.userId === meId, pending: false }
 			: { name: g.invitedEmail ?? "", isMe: false, pending: true };
 	const targetOf = (g: { accountId: string | null; personId: string | null }) =>
 		g.accountId
@@ -186,7 +188,11 @@ export async function listActivity(
 			fromLevel: null,
 			target: targetOf(g),
 			detail: null,
+			inviteOpen: false,
 		};
+		// An invite nobody has used yet, and that still works.
+		const open =
+			g.userId === null && g.revokedAt === null && (g.expiresAt === null || g.expiresAt > now);
 		const previous = g.supersedesGrantId ? byId.get(g.supersedesGrantId) : undefined;
 
 		// How the row began.
@@ -214,9 +220,12 @@ export async function listActivity(
 				at: g.createdAt,
 				kind: "invite_resent",
 				actor: person(g.grantedByUserId),
+				inviteOpen: open,
 			});
 		} else if (g.personId && g.userId && g.userId === g.grantedByUserId) {
-			items.push({
+			// Adding a person is not about any one account: left out when
+			// the record is being read for a single account.
+			if (!input.accountId) items.push({
 				...base,
 				id: `${g.id}:holder`,
 				at: g.createdAt,
@@ -230,6 +239,7 @@ export async function listActivity(
 				id: `${g.id}:start`,
 				at: g.createdAt,
 				kind: g.userId ? "access_given" : "invited",
+				inviteOpen: open,
 				actor: person(g.grantedByUserId),
 			});
 		}
@@ -267,7 +277,7 @@ export async function listActivity(
 		const a = accountId ? accountById.get(accountId) : undefined;
 		return a ? { kind: "account" as const, id: a.id, label: a.label } : null;
 	};
-	const plain = { subject: null, level: null, fromLevel: null };
+	const plain = { subject: null, level: null, fromLevel: null, inviteOpen: false };
 
 	for (const b of batches) {
 		const stats = (b.stats ?? {}) as { new?: number; questions?: number };
@@ -355,15 +365,26 @@ export async function listActivity(
 				fromLevel: null,
 				target: { kind: "account", id: a.id, label: a.label },
 				detail: null,
+				inviteOpen: false,
 			});
 
+	// Newest first; entries of the same moment in a fixed order. The cursor
+	// names an entry ("<when>|<id>"), so a page boundary that falls between
+	// two entries of the same millisecond loses neither.
+	const [beforeAt, beforeId] = input.before ? input.before.split("|") : [];
+	const cutAt = Number(beforeAt);
 	const page = items
-		.filter((item) => input.before === undefined || item.at < input.before)
-		.sort((a, b) => b.at - a.at || b.id.localeCompare(a.id));
+		.sort((a, b) => b.at - a.at || b.id.localeCompare(a.id))
+		.filter(
+			(item) =>
+				input.before === undefined ||
+				item.at < cutAt ||
+				(item.at === cutAt && item.id.localeCompare(beforeId ?? "") < 0),
+		);
 	const shown = page.slice(0, input.limit);
+	const last = shown[shown.length - 1];
 	return {
 		items: shown,
-		nextBefore:
-			page.length > shown.length ? (shown[shown.length - 1]?.at ?? null) : null,
+		nextBefore: page.length > shown.length && last ? `${last.at}|${last.id}` : null,
 	};
 }

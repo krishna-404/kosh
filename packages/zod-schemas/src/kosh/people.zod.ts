@@ -325,7 +325,8 @@ export const activityItemZod = z.object({
 	id: z.string(),
 	at: z.number(),
 	kind: activityKindZod,
-	actor: z.object({ name: z.string(), isMe: z.boolean() }).nullable(),
+	/** Who did it. `key` is stable per person, for filtering — two people can share a name. */
+	actor: z.object({ key: z.string(), name: z.string(), isMe: z.boolean() }).nullable(),
 	/** The person the entry is about, when it is about someone. */
 	subject: z
 		.object({ name: z.string(), isMe: z.boolean(), pending: z.boolean() })
@@ -335,20 +336,22 @@ export const activityItemZod = z.object({
 	target: targetRefZod.nullable(),
 	/** Extra words for the sentence: a file name, a count. */
 	detail: z.string().nullable(),
+	/** For an invite entry: nobody has signed in with it yet and it still works. */
+	inviteOpen: z.boolean(),
 });
 export type ActivityItem = z.infer<typeof activityItemZod>;
 
 export const activityListInputZod = z.object({
 	accountId: z.string().optional(),
 	filter: z.enum(["all", "uploads", "access", "answers"]).default("all"),
-	/** Return entries older than this moment (for "show more"). */
-	before: z.number().optional(),
+	/** The `nextBefore` of the page above, to carry on from where it ended. */
+	before: z.string().optional(),
 	limit: z.number().int().min(1).max(200).default(50),
 });
 
 export const activityListZod = z.object({
 	items: z.array(activityItemZod),
 	/** Pass as `before` to load the next page; null when there is no more. */
-	nextBefore: z.number().nullable(),
+	nextBefore: z.string().nullable(),
 });
 export type ActivityList = z.infer<typeof activityListZod>;

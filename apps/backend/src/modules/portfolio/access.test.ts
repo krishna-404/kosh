@@ -875,6 +875,10 @@ describe("Account access", () => {
 			);
 			expect(his.items.every((i) => i.subject === null || i.subject.isMe)).toBe(true);
 
+			// An invite reads as open only while nobody has used or stopped it.
+			const invite = (await anil.activity.list({})).items.find((i) => i.kind === "invited");
+			expect(invite).toMatchObject({ inviteOpen: true, actor: { key: anil.id, isMe: true } });
+
 			const change = his.items.find((i) => i.kind === "level_changed");
 			expect(change).toMatchObject({ fromLevel: "view", level: "edit", actor: { isMe: false } });
 
@@ -888,11 +892,22 @@ describe("Account access", () => {
 			const access = await anil.activity.list({ filter: "access" });
 			expect(access.items.map((i) => i.kind)).toEqual(["holder_added"]);
 
-			const first = await anil.activity.list({ limit: 2 });
-			expect(first.items).toHaveLength(2);
-			expect(first.nextBefore).not.toBeNull();
-			const rest = await anil.activity.list({ before: first.nextBefore ?? undefined });
-			expect(first.items.length + rest.items.length).toBeGreaterThanOrEqual(3);
+			// Page by page, one entry at a time: every entry turns up exactly once,
+			// even the ones recorded in the same instant.
+			const all = (await anil.activity.list({})).items.map((i) => i.id);
+			const paged: string[] = [];
+			let before: string | undefined;
+			do {
+				const page = await anil.activity.list({ limit: 1, before });
+				paged.push(...page.items.map((i) => i.id));
+				before = page.nextBefore ?? undefined;
+			} while (before);
+			expect(paged).toEqual(all);
+			expect(all.length).toBeGreaterThanOrEqual(3);
+
+			// Read for one account, the record leaves out what is not about it.
+			const forOne = await anil.activity.list({ accountId: zerodha });
+			expect(forOne.items.map((i) => i.kind)).toEqual(["account_added"]);
 		});
 	});
 });
