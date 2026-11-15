@@ -104,8 +104,8 @@ if (env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_PROJECT_ID && env.VITE_FIREBA
     const url = payload.data?.url ?? payload.fcmOptions?.link ?? '/';
     void self.registration.showNotification(title, {
       body,
-      icon: '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
+      icon: '/notification-icon-192x192.png',
+      badge: '/notification-badge-96x96.png',
       data: { url },
       tag: payload.messageId,
     });
