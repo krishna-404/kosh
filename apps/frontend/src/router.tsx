@@ -72,10 +72,6 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 						path: "profile",
 						lazy: lazyRoute(() => import("@frontend/pages/Profile.page")),
 					},
-					{
-						path: "settings/sync",
-						lazy: lazyRoute(() => import("@frontend/pages/SettingsSync.page")),
-					},
 				],
 			},
 		],

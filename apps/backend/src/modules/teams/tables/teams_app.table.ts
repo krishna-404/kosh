@@ -37,7 +37,7 @@ export class TeamAppTable extends BaseTable {
 				.nullable(),
 			deletedAt: t.timestampNumber().nullable(),
 
-			...t.timestamps(),
+			...t.timestampsAsNumbers(),
 		}),
 		(t) => [
 			t.unique(["personalTeamForUserId"], {

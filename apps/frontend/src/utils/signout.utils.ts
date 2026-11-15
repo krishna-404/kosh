@@ -1,12 +1,7 @@
 import { authClient } from "./auth.client";
-import { clearAuthCache } from "./auth.persistence";
 import { revokePushForUser } from "./push.utils";
 
-export const signout = async (mode?: "clear-cache") => {
-    if (mode === "clear-cache") {
-        clearAuthCache();
-    }
-
+export const signout = async () => {
     // Revoke the FCM token before the session goes away — after signOut()
     // succeeds we've navigated away and the oRPC call would 401. Failures
     // are logged inside revokePushForUser, never thrown, so a broken push

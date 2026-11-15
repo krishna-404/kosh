@@ -49,14 +49,6 @@ export const FEATURE_FLAG_SCOPE_ENUM = ["global", "team"] as const;
 export const featureFlagScopeZod = z.enum(FEATURE_FLAG_SCOPE_ENUM);
 export type FeatureFlagScope = z.infer<typeof featureFlagScopeZod>;
 
-export const TABLES_TO_SYNC_ENUM = [
-	"teamsApp",
-	"teamMembers",
-	"files",
-] as const;
-export const tablesToSyncZod = z.enum(TABLES_TO_SYNC_ENUM);
-export type TablesToSync = z.infer<typeof tablesToSyncZod>;
-
 // Device platform reported by the frontend at push-register time.
 // Broad enough to cover every OS a Web Push subscription can originate
 // from, with `other` as a catchall so unknown UAs don't fail validation.

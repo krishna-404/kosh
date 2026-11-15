@@ -34,9 +34,6 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		base: "/",
-		worker: {
-			format: "es",
-		},
 		// Mirror the prod reverse-proxy layout in host-mode `yarn dev`: the SPA
 		// runs on :5173, backend on :3000, and /api/* is same-origin from the
 		// browser's POV (matching apps/frontend/nginx.conf.template). Combined
@@ -150,7 +147,7 @@ export default defineConfig(({ mode }) => {
 			// instances at runtime. Symptom in dev (esp. after HMR):
 			//   - "You are loading @emotion/react when it is already loaded"
 			//   - "Invalid hook call ... more than one copy of React"
-			//   - `useContext(null)` inside SvgIcon on /settings/sync.
+			//   - `useContext(null)` inside SvgIcon.
 			// `dedupe` forces every request for these packages to resolve to
 			// the single copy hoisted at the workspace root.
 			dedupe: [

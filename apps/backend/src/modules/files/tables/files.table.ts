@@ -33,10 +33,9 @@ export class FileTable extends BaseTable {
 				.setOnCreate(() => getRequestContext()?.tenantTeamId ?? null),
 			deletedAt: t.timestampNumber().nullable(),
 
-			...t.timestamps(),
+			...t.timestampsAsNumbers(),
 		}),
 		(t) => [
-			// Cursor-pagination driver for files pullBundles.
 			t.index(["teamId", "updatedAt", "id"]),
 			// Look-up index for the parent-scoped fetch pattern
 			// (files.getByTableId).

@@ -5,17 +5,7 @@ import {
 	fileCreateInputZod,
 	fileSelectAllZod,
 } from "@connected-repo/zod-schemas/file.zod";
-import {
-	filePullBundlesInputZod,
-	filePullBundlesOutputZod,
-	filePushCdnUpdatesInputZod,
-	filePushCdnUpdatesOutputZod,
-} from "@connected-repo/zod-schemas/files/sync";
 import { z } from "zod";
-import {
-	pullFilesService,
-	pushFilesCdnUpdatesService,
-} from "./services/sync.files.service";
 
 const create = rpcProtectedActiveTeamProcedure
 	.route({ method: "POST", tags: ["Files"] })
@@ -59,25 +49,7 @@ const getByTableId = rpcProtectedActiveTeamProcedure
 			.order({ createdAt: "ASC" });
 	});
 
-const pushCdnUpdates = rpcProtectedActiveTeamProcedure
-	.route({ method: "POST", tags: ["Files"] })
-	.input(filePushCdnUpdatesInputZod)
-	.output(filePushCdnUpdatesOutputZod)
-	.handler(async ({ input }) => {
-		return await pushFilesCdnUpdatesService(input);
-	});
-
-const pullBundles = rpcProtectedActiveTeamProcedure
-	.route({ method: "POST", tags: ["Files"] })
-	.input(filePullBundlesInputZod)
-	.output(filePullBundlesOutputZod)
-	.handler(async ({ input }) => {
-		return await pullFilesService(input);
-	});
-
 export const filesRouter = {
 	create,
 	getByTableId,
-	pushCdnUpdates,
-	pullBundles,
 };

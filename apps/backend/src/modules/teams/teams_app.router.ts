@@ -12,19 +12,9 @@ import {
 	teamAppSelectAllZod,
 	teamWithRoleZod,
 } from "@connected-repo/zod-schemas/team_app.zod";
-import {
-	teamMembersPullBundlesInputZod,
-	teamMembersPullBundlesOutputZod,
-	teamsAppPullBundlesInputZod,
-	teamsAppPullBundlesOutputZod,
-} from "@connected-repo/zod-schemas/teams/sync";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { createTeamService } from "./services/create_team.teams.service";
-import {
-	pullTeamMembersService,
-	pullTeamsAppService,
-} from "./services/sync.teams.service";
 
 const getMyTeams = rpcProtectedProcedure
 	.route({ method: "GET", tags: ["Teams"] })
@@ -161,28 +151,6 @@ const updateMemberRole = rpcProtectedActiveTeamProcedure
 			.update({ role });
 	});
 
-// Session-only membership reconciliation. Returns the ids of every team the
-// caller is CURRENTLY an active member of. Deliberately NOT active-team-scoped
-// (`rpcProtectedProcedure`, not `rpcProtectedActiveTeamProcedure`): the client
-// calls this at the start of every sync cycle to learn which locally-mirrored
-// teams it no longer belongs to and must wipe. If it required the active team,
-// a user removed from their active team would get 403 here too — the exact
-// dead-end this fixes (see the sync orchestrator's reconcileMemberships).
-//
-// `team_members`'s tenant default scope is a no-op without request context, so
-// this returns memberships across ALL teams; the soft-delete filter still
-// applies, so only active (non-revoked) memberships come back.
-const listMyActiveTeamIds = rpcProtectedProcedure
-	.route({ method: "GET", tags: ["Teams"] })
-	.output(z.object({ teamIds: z.array(z.ulid()) }))
-	.handler(async ({ context: { user } }) => {
-		const rows = await db.teamMembers
-			.unscope("default")
-			.where({ userId: user.id })
-			.select("teamId");
-		return { teamIds: rows.map((r) => r.teamId) };
-	});
-
 // Persists the caller's active team on the user record. Uses plain
 // `rpcProtectedProcedure` — if the user is stuck on a stale/removed team,
 // requiring x-team-id to match `activeTeamAppId` here would prevent them from
@@ -273,38 +241,8 @@ const getDefaultTeam = rpcProtectedProcedure
 		return personalTeam;
 	});
 
-// ─── Sync — wave-1 anchor ────────────────────────────────────────────────
-//
-// `pullBundles` mints `topLevelSyncedAt` and returns it so downstream
-// per-table pulls in the same cycle can echo it back as the snapshot
-// ceiling. Scoped to the caller's team memberships (returns ALL teams the
-// user belongs to, not just the active one — the client renders its team
-// picker from this).
-//
-// Uses `rpcProtectedActiveTeamProcedure` because `pullTeamsAppService` →
-// `syncDeltaService` reads `tenantTeamId` from AsyncLocalStorage, which
-// only that procedure populates. The active-team requirement is safe here
-// because every user always has an `activeTeamAppId` (personal team
-// created on signup, non-deletable).
-const pullBundles = rpcProtectedActiveTeamProcedure
-	.route({ method: "POST", tags: ["Teams"] })
-	.input(teamsAppPullBundlesInputZod)
-	.output(teamsAppPullBundlesOutputZod)
-	.handler(async ({ input, context: { user } }) => {
-		return await pullTeamsAppService(input, user.id);
-	});
-
-const pullMembersDelta = rpcProtectedActiveTeamProcedure
-	.route({ method: "POST", tags: ["Teams"] })
-	.input(teamMembersPullBundlesInputZod)
-	.output(teamMembersPullBundlesOutputZod)
-	.handler(async ({ input }) => {
-		return await pullTeamMembersService(input);
-	});
-
 export const teamsAppRouter = {
 	getMyTeams,
-	listMyActiveTeamIds,
 	createTeam,
 	setActiveTeam,
 	deleteTeam,
@@ -313,6 +251,4 @@ export const teamsAppRouter = {
 	removeTeamMember,
 	updateMemberRole,
 	getDefaultTeam,
-	pullBundles,
-	pullMembersDelta,
 };

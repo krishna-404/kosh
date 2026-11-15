@@ -16,9 +16,7 @@ interface ClientContext {
 // must resolve against the current origin ourselves. Passing a relative path
 // like "/api/user-app" here works for `fetch`, but oRPC's RPCLink internally
 // does `new URL(path, this.url)` which throws "Invalid URL" on a relative
-// base — breaking every RPC call and making the sync worker retry-loop
-// forever with "Failed to construct 'URL': Invalid URL".
-// globalThis.location is defined in main thread, workers, and service workers.
+// base — breaking every RPC call with "Failed to construct 'URL': Invalid URL".
 const orpcBaseUrl = env.VITE_API_URL
   ? `${env.VITE_API_URL}/api/user-app`
   : `${globalThis.location.origin}/api/user-app`;
@@ -27,15 +25,15 @@ const link = new RPCLink<ClientContext>({
   url: orpcBaseUrl,
   // Async by design: awaits two barriers before every outbound request.
   //   1. `switchGate.waitOpen()` — blocks during a team switch so the
-  //      header, worker cache, and backend session cannot disagree.
+  //      header and backend session cannot disagree.
   //      Rejects after the gate's default timeout so a hung switch
   //      surfaces as a retriable error instead of piling up requests.
   //      The `teams.setActiveTeam` RPC itself is exempt — it is the
   //      operation that drives the switch, and gating it would deadlock
   //      the very code that is meant to reopen the gate.
   //   2. `getActiveTeamIdReady()` — first-seed signal for the header
-  //      cache (authLoader on main, dataProxy.sync.setActiveTeamId on
-  //      worker). After the first seed, this resolves near-instantly.
+  //      cache (seeded by authLoader). After the first seed, this
+  //      resolves near-instantly.
   headers: async ({ context }, path) => {
     const isSwitchRpc = path[0] === 'teams' && path[1] === 'setActiveTeam';
     if (!isSwitchRpc) {
@@ -124,7 +122,7 @@ const link = new RPCLink<ClientContext>({
         causeMessage.includes("aborted a request") ||
         causeMessage.includes("signal is aborted");
       if (isAbort) {
-        console.debug("[oRPC] Request aborted or stream closed (expected during navigation/offline tests)");
+        console.debug("[oRPC] Request aborted or stream closed (expected during navigation)");
         return;
       };
       
@@ -134,25 +132,12 @@ const link = new RPCLink<ClientContext>({
         errorMessage.toLowerCase().includes("unauthenticated") ||
         errorMessage.toLowerCase().includes("authentication required");
       
-      // Only log errors if we are NOT offline (to avoid console noise for expected failures)
-      const isActuallyOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-      if (!isActuallyOffline) {
-          console.error("[oRPC Error]", err);
-      } else {
-          console.debug("[oRPC] Suppressed fetch error while offline:", errorMessage);
-      }
-      
-      // Only show toast and handle signout if in a browser context
-      if (typeof window !== 'undefined') {
-        
-        // For auth errors, redirect to login ONLY if we're on a protected route
-        if (isAuthError) {
-          toast.error("Your session has expired. Please log in again.", { autoClose: 3000 });
-          await signout();
-        }
-      } else {
-          // In a worker, we just log and potentially notify the main thread if needed
-          console.warn(`[oRPC Worker] Auth error detected: ${errorMessage}`);
+      console.error("[oRPC Error]", err);
+
+      // For auth errors, sign out and send the user back to login.
+      if (isAuthError) {
+        toast.error("Your session has expired. Please log in again.", { autoClose: 3000 });
+        await signout();
       }
     })
   ],

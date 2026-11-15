@@ -1,16 +1,8 @@
-import {
-	ACTIVE_TEAM_WIPED_CHANNEL,
-	type ActiveTeamWipedMessage,
-} from "@frontend/utils/active_team_wiped.channel";
+import { setActiveTeamIdForRequests } from "@frontend/utils/active_team_header.client";
 import type { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { syncPushIfGranted } from "@frontend/utils/push.utils";
-import { signout } from "@frontend/utils/signout.utils";
 import { switchGate } from "@frontend/utils/switch_gate";
-import {
-	initSyncForUser,
-	setActiveTeam as syncSetActiveTeam,
-} from "@frontend/utils/sync-triggers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, useContext, useEffect } from "react";
 import { useRevalidator } from "react-router";
@@ -73,23 +65,6 @@ export function WorkspaceProvider({
 		enabled: !!userId,
 	});
 
-	// Push the initial header + worker cache once the session is known.
-	// `initSyncForUser` is idempotent for the same userId so re-runs are safe.
-	//
-	// Dep-list is load-bearing:
-	//   - `userId` change → wipe + reopen per-user Dexie DB.
-	//   - `activeTeamAppId` change → re-seed the RPC `x-team-id` header +
-	//     worker cache atomically, then kick a new sync cycle.
-	// The `authLoader` `getDefaultTeam` self-heal mutates `session.user.
-	// activeTeamAppId` in place BEFORE this component mounts, so the
-	// initial render sees the resolved value in a single tick and this
-	// effect fires exactly once at bootup. Adding/removing deps here
-	// changes those invariants — double-check before touching.
-	useEffect(() => {
-		if (!userId) return;
-		void initSyncForUser(userId, activeTeamAppId);
-	}, [userId, activeTeamAppId]);
-
 	// Silent FCM registration on login. NEVER prompts for permission —
 	// browsers permanently disable Notification.requestPermission() for
 	// the origin if the user dismisses a bad prompt once. The user-gesture
@@ -104,8 +79,8 @@ export function WorkspaceProvider({
 		orpc.teams.setActiveTeam.mutationOptions({
 			onMutate: () => {
 				// Close the switch-gate BEFORE the backend session update
-				// fires. The gate blocks every OTHER outbound ORPC (main +
-				// worker) at the link boundary — the `teams.setActiveTeam`
+				// fires. The gate blocks every OTHER outbound ORPC at the
+				// link boundary — the `teams.setActiveTeam`
 				// call is exempt in `orpc.client.ts` so this doesn't
 				// deadlock. Requests already past the gate but not yet
 				// dispatched will complete against the OLD `x-team-id`
@@ -115,17 +90,16 @@ export function WorkspaceProvider({
 			},
 			onSuccess: async ({ activeTeamAppId: newId }) => {
 				try {
-					// 1. Propagate to both header cache + worker cache atomically
-					//    so subsequent requests carry the new team id. This is
-					//    what the closed gate is protecting: no other RPC can
-					//    dispatch until both caches are flipped.
-					await syncSetActiveTeam(newId);
+					// 1. Flip the header cache so subsequent requests carry the
+					//    new team id. This is what the closed gate is
+					//    protecting: no other RPC can dispatch until it flips.
+					setActiveTeamIdForRequests(newId);
 					// 2. Re-run the router's authLoader so `sessionInfo.user.activeTeamAppId`
 					//    (fed via useLoaderData) reflects the new value. Without this,
 					//    the loader-derived prop stays at the old team and downstream
-					//    consumers (activeWorkspace, useActiveTeamId, page enabled-gates,
-					//    the initSyncForUser effect) remain out of sync with the header,
-					//    causing team-B data to render under a team-A UI.
+					//    consumers (activeWorkspace, useActiveTeamId, page enabled-gates)
+					//    remain out of sync with the header, causing team-B data to
+					//    render under a team-A UI.
 					revalidator.revalidate();
 				} finally {
 					// Reopen before invalidateQueries so the refetches it
@@ -149,68 +123,6 @@ export function WorkspaceProvider({
 			},
 		}),
 	);
-
-	// Listen for the DataWorker's "your active team is gone" signal.
-	// Fires when the pull pipeline delivers a tombstone for either the
-	// active `teams` row (team deleted) or the current user's
-	// `team_members` row for the active team (membership revoked). The
-	// worker has already dropped the local rows + OPFS blobs and
-	// cleared its own active-team cache; our job is to move the user
-	// somewhere sensible without leaving the header cache pointing at
-	// a wiped team.
-	//
-	// Resolution goes through the same switch-gate flow as a manual
-	// switch (`setActiveTeamMutation.mutateAsync`) — the closed gate
-	// blocks concurrent RPCs until the header cache flips, exactly the
-	// same invariant as the profile-page switcher. Bypassing it would
-	// re-open the "team-A UI over team-B data" race that the gate was
-	// built to eliminate.
-	//
-	// If no teams remain, we force sign-out — the app has no
-	// meaningful state to render without an active team.
-	useEffect(() => {
-		if (!userId) return;
-		if (typeof BroadcastChannel === "undefined") return;
-		const channel = new BroadcastChannel(ACTIVE_TEAM_WIPED_CHANNEL);
-		channel.onmessage = async (event: MessageEvent<ActiveTeamWipedMessage>) => {
-			const msg = event.data;
-			if (!msg || msg.type !== "active-team-wiped") return;
-
-			// Refetch teams so we know what the user still belongs to.
-			// The wiped team is already gone from the server (the tombstone
-			// is exactly how we learned about it), so `getMyTeams` will not
-			// include it.
-			const remaining = await queryClient.fetchQuery(
-				orpc.teams.getMyTeams.queryOptions({}),
-			);
-
-			const fallback = remaining.find((t) => t.id !== msg.wipedTeamId);
-			if (fallback) {
-				try {
-					await setActiveTeamMutation.mutateAsync({
-						teamAppId: fallback.id,
-					});
-					toast.info(
-						`You were removed from the previous workspace. Switched to "${fallback.name}".`,
-					);
-				} catch (err) {
-					console.warn(
-						"[WorkspaceContext] auto-switch after wipe failed",
-						err,
-					);
-				}
-				return;
-			}
-
-			// No remaining teams — force sign-out. `signout` handles the
-			// backend session teardown + redirect to /auth/login.
-			toast.info("You were removed from your workspace. Signing you out.");
-			await signout("clear-cache");
-		};
-		return () => {
-			channel.close();
-		};
-	}, [userId, queryClient, setActiveTeamMutation]);
 
 	const activeWorkspace: Workspace = (() => {
 		if (!activeTeamAppId || teams.length === 0) return PLACEHOLDER_WORKSPACE;

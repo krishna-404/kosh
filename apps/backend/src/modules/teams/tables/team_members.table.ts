@@ -33,7 +33,7 @@ export class TeamMemberTable extends BaseTable {
 			joinedAt: t.timestampNumber().nullable(),
 			deletedAt: t.timestampNumber().nullable(),
 
-			...t.timestamps(),
+			...t.timestampsAsNumbers(),
 		}),
 		// Soft-delete-aware uniques: "if a value is set on an active row, it
 		// must be unique within the team." Partial on `deleted_at IS NULL` so

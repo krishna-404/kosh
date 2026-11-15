@@ -42,8 +42,7 @@ export const UserProfileMenu = ({
 
 	const handleLogout = async () => {
 		handleClose();
-		// Clear cache when user logs out intentionally
-		await signout("clear-cache");
+		await signout();
 	};
 
 	const handleOpen = (event: React.MouseEvent<HTMLElement>) => {

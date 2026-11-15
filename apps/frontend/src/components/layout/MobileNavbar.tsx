@@ -7,7 +7,6 @@ import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { BottomNavigation } from "@connected-repo/ui-mui/navigation/BottomNavigation";
 import { BottomNavigationAction } from "@connected-repo/ui-mui/navigation/BottomNavigationAction";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
-import { SyncBubble } from "@frontend/components/layout/SyncBubble";
 import { UserProfileMenu } from "@frontend/components/layout/UserProfileMenu";
 import { NovuInbox } from "@frontend/components/notifications/NovuInbox";
 import { navItems } from "@frontend/configs/nav.config";
@@ -129,7 +128,6 @@ export const MobileNavbar = () => {
 						</Stack>
 					</Box>
 
-					<SyncBubble />
 					<NovuInbox />
 					<UserProfileMenu />
 				</Toolbar>
